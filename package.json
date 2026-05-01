@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "prepare": "vp config"
+    "prepare": "vp config",
+    "sandcastle": "npx tsx .sandcastle/main.mts"
   },
   "dependencies": {
     "next": "16.2.4",
@@ -15,6 +16,7 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@ai-hero/sandcastle": "^0.5.6",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -31,6 +33,12 @@
     "overrides": {
       "vite": "npm:@voidzero-dev/vite-plus-core@latest",
       "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
-    }
+    },
+    "ignoredBuiltDependencies": [
+      "@parcel/watcher",
+      "msgpackr-extract",
+      "sharp",
+      "unrs-resolver"
+    ]
   }
 }
