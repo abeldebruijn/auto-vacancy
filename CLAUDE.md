@@ -1,49 +1,37 @@
-@AGENTS.md
+<!-- convex-ai-start -->
 
+This project uses [Convex](https://convex.dev) as its backend.
 
-<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
-## Beads Issue Tracker
+When working on Convex code, **always read
+`convex/_generated/ai/guidelines.md` first** for important guidelines on
+how to correctly use Convex APIs and patterns. The file contains rules that
+override what you may have learned about Convex from training data.
 
-This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
+Convex agent skills for common tasks can be installed by running
+`npx convex ai-files install`.
 
-### Quick Reference
+<!-- convex-ai-end -->
 
-```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work
-bd close <id>         # Complete work
-```
+<!-- BEGIN:nextjs-agent-rules -->
 
-### Rules
+# This is NOT the Next.js you know
 
-- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
-- Run `bd prime` for detailed command reference and session close protocol
-- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 
-## Session Completion
+<!-- END:nextjs-agent-rules -->
 
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
+<!-- BEGIN:vite-plus-rules -->
 
-**MANDATORY WORKFLOW:**
+This project uses vite plus to manage node, dev and build commands
 
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
-   ```bash
-   git pull --rebase
-   bd dolt push
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
+- vp env - Manage Node.js versions
+- vp check - Run format, lint, and TypeScript type checks
+- vp lint - Lint code
+- vp fmt - Format code
+- vp test - Run tests
+- vp run - Run monorepo tasks
+- vp build - Build for production
 
-**CRITICAL RULES:**
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
-<!-- END BEADS INTEGRATION -->
+do not run `vp build` instead run `vp run build`.
+
+<!-- END:nextjs-agent-rules -->
