@@ -94,23 +94,14 @@ export function ListField({
           <Input
             className="min-w-0 flex-1"
             value={value}
-            onChange={(event) =>
-              replaceAt(values, index, event.target.value, onChange)
-            }
+            onChange={(event) => replaceAt(values, index, event.target.value, onChange)}
           />
-          <IconButton
-            label="Remove"
-            onClick={() => removeAt(values, index, onChange)}
-          >
+          <IconButton label="Remove" onClick={() => removeAt(values, index, onChange)}>
             <Trash2 />
           </IconButton>
         </div>
       ))}
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => onChange([...values, ""])}
-      >
+      <Button size="sm" variant="outline" onClick={() => onChange([...values, ""])}>
         <Plus className="size-3.5" />
         Add
       </Button>
@@ -192,19 +183,12 @@ export function FormSelect({
   );
 }
 
-export function Checks({
-  values,
-}: {
-  values: [string, boolean, (checked: boolean) => void][];
-}) {
+export function Checks({ values }: { values: [string, boolean, (checked: boolean) => void][] }) {
   return (
     <div className="flex flex-wrap gap-3">
       {values.map(([label, checked, onChange]) => (
         <Label key={label} className="flex items-center gap-2">
-          <Checkbox
-            checked={checked}
-            onCheckedChange={(value) => onChange(value === true)}
-          />
+          <Checkbox checked={checked} onCheckedChange={(value) => onChange(value === true)} />
           {label}
         </Label>
       ))}
@@ -261,13 +245,7 @@ export function IconButton({
   children: React.ReactNode;
 }) {
   return (
-    <Button
-      size="icon-sm"
-      variant="ghost"
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-    >
+    <Button size="icon-sm" variant="ghost" aria-label={label} title={label} onClick={onClick}>
       {children}
     </Button>
   );

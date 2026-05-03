@@ -44,11 +44,7 @@ export default defineSchema({
     profileId: v.id("candidateProfiles"),
     ownerToken: v.string(),
     employer: v.string(),
-    contractType: v.union(
-      v.literal("full-time"),
-      v.literal("part-time"),
-      v.null(),
-    ),
+    contractType: v.union(v.literal("full-time"), v.literal("part-time"), v.null()),
     isHobbyProject: v.boolean(),
     fromYear: v.union(v.number(), v.null()),
     toYear: v.union(v.number(), v.null()),

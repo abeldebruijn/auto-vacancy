@@ -29,9 +29,7 @@ export function StartProfileScreen({
             <UserRound className="size-4" />
             Profile
           </div>
-          <CardTitle className="text-xl">
-            Start with your existing CV
-          </CardTitle>
+          <CardTitle className="text-xl">Start with your existing CV</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-1 text-sm text-muted-foreground">
@@ -51,10 +49,7 @@ export function StartProfileScreen({
                 value={pastedMarkdown}
                 onChange={(event) => onMarkdownChange(event.target.value)}
               />
-              <Button
-                onClick={onPasteImport}
-                disabled={pastedMarkdown.trim() === ""}
-              >
+              <Button onClick={onPasteImport} disabled={pastedMarkdown.trim() === ""}>
                 <Sparkles className="size-4" />
                 Extract profile from pasted CV
               </Button>
@@ -64,8 +59,7 @@ export function StartProfileScreen({
               <Upload className="mb-3 size-8 text-muted-foreground" />
               <span className="font-medium">Upload markdown CV</span>
               <span className="mt-2 max-w-72 text-sm text-muted-foreground">
-                Select a `.md` file. PDF and DOCX support comes later; markdown
-                is supported now.
+                Select a `.md` file. PDF and DOCX support comes later; markdown is supported now.
               </span>
               <input
                 className="sr-only"
@@ -82,9 +76,8 @@ export function StartProfileScreen({
 
           <div className="space-y-1 text-sm text-muted-foreground">
             <p>
-              Auto Vacancy extracts your contact details, experiences, STAR
-              stories, skills, education, and hobbies. You can review and edit
-              everything afterwards.
+              Auto Vacancy extracts your contact details, experiences, STAR stories, skills,
+              education, and hobbies. You can review and edit everything afterwards.
             </p>
           </div>
 
@@ -95,11 +88,7 @@ export function StartProfileScreen({
           </div>
 
           <div className="flex flex-col items-center gap-3">
-            <Button
-              className="w-full max-w-sm"
-              variant="outline"
-              onClick={onManualStart}
-            >
+            <Button className="w-full max-w-sm" variant="outline" onClick={onManualStart}>
               <Keyboard className="size-4" />
               Enter manually
             </Button>

@@ -91,10 +91,7 @@ export type ProfileForm = {
 };
 
 export type ProfileData = {
-  profile: Omit<
-    ProfileForm,
-    "experiences" | "skills" | "educations" | "hobbies"
-  >;
+  profile: Omit<ProfileForm, "experiences" | "skills" | "educations" | "hobbies">;
   pictureUrl: string | null;
   experiences: (Omit<ExperienceForm, "id" | "stories"> & {
     _id: Id<"experiences">;
@@ -128,24 +125,11 @@ export function isMarkdownCvFile(fileName: string) {
   return fileName.toLowerCase().endsWith(".md");
 }
 
-export function replaceAt<T>(
-  items: T[],
-  index: number,
-  item: T,
-  onChange: (items: T[]) => void,
-) {
-  onChange(
-    items.map((current, currentIndex) =>
-      currentIndex === index ? item : current,
-    ),
-  );
+export function replaceAt<T>(items: T[], index: number, item: T, onChange: (items: T[]) => void) {
+  onChange(items.map((current, currentIndex) => (currentIndex === index ? item : current)));
 }
 
-export function removeAt<T>(
-  items: T[],
-  index: number,
-  onChange: (items: T[]) => void,
-) {
+export function removeAt<T>(items: T[], index: number, onChange: (items: T[]) => void) {
   onChange(items.filter((_, currentIndex) => currentIndex !== index));
 }
 
@@ -289,13 +273,9 @@ export function normalizeForm(form: ProfileForm) {
     placeOfResidence: cleanString(form.placeOfResidence),
     phoneNumber: cleanString(form.phoneNumber),
     linkedinLink: cleanString(form.linkedinLink),
-    otherSocialLinks: form.otherSocialLinks
-      .map((value) => value.trim())
-      .filter(Boolean),
+    otherSocialLinks: form.otherSocialLinks.map((value) => value.trim()).filter(Boolean),
     otherDetails: cleanString(form.otherDetails),
-    characteristics: form.characteristics
-      .map((value) => value.trim())
-      .filter(Boolean),
+    characteristics: form.characteristics.map((value) => value.trim()).filter(Boolean),
     nextSteps: form.nextSteps.map((value) => value.trim()).filter(Boolean),
     experiences: form.experiences.map((experience) => ({
       ...experience,

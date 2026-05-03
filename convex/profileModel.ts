@@ -21,11 +21,7 @@ export const storyInputValidator = v.object({
 export const experienceInputValidator = v.object({
   id: v.union(v.id("experiences"), v.null()),
   employer: v.string(),
-  contractType: v.union(
-    v.literal("full-time"),
-    v.literal("part-time"),
-    v.null(),
-  ),
+  contractType: v.union(v.literal("full-time"), v.literal("part-time"), v.null()),
   isHobbyProject: v.boolean(),
   fromYear: nullableNumber,
   toYear: nullableNumber,

@@ -2,11 +2,7 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import {
-  importedCvStatusValidator,
-  pictureValidator,
-  profileInputValidator,
-} from "./profileModel";
+import { importedCvStatusValidator, pictureValidator, profileInputValidator } from "./profileModel";
 
 async function requireOwnerToken(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
@@ -16,20 +12,14 @@ async function requireOwnerToken(ctx: QueryCtx | MutationCtx) {
   return identity.tokenIdentifier;
 }
 
-async function getOwnedProfile(
-  ctx: QueryCtx | MutationCtx,
-  ownerToken: string,
-) {
+async function getOwnedProfile(ctx: QueryCtx | MutationCtx, ownerToken: string) {
   return await ctx.db
     .query("candidateProfiles")
     .withIndex("by_ownerToken", (q) => q.eq("ownerToken", ownerToken))
     .unique();
 }
 
-async function deleteProfileChildren(
-  ctx: MutationCtx,
-  profileId: Id<"candidateProfiles">,
-) {
+async function deleteProfileChildren(ctx: MutationCtx, profileId: Id<"candidateProfiles">) {
   for await (const skill of ctx.db
     .query("skills")
     .withIndex("by_profileId_and_kind", (q) => q.eq("profileId", profileId))) {
@@ -173,9 +163,7 @@ async function upsertProfileFromInput(
   };
 
   const profileId =
-    existing === null
-      ? await ctx.db.insert("candidateProfiles", profileFields)
-      : existing._id;
+    existing === null ? await ctx.db.insert("candidateProfiles", profileFields) : existing._id;
 
   if (existing !== null) {
     await ctx.db.patch(profileId, profileFields);
@@ -359,10 +347,7 @@ export const applyImportedCvPreview = mutation({
     if (importedCv === null || importedCv.ownerToken !== ownerToken) {
       throw new Error("Imported CV not found");
     }
-    if (
-      importedCv.status !== "preview" ||
-      importedCv.extractedSnapshot === null
-    ) {
+    if (importedCv.status !== "preview" || importedCv.extractedSnapshot === null) {
       throw new Error("Imported CV is not ready to apply");
     }
     const profileId = await upsertProfileFromInput(

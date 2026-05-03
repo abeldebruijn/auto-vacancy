@@ -52,8 +52,7 @@ export function ExperienceEditor({
           onChange={(value) =>
             onChange({
               ...experience,
-              contractType:
-                value === "" ? null : (value as "full-time" | "part-time"),
+              contractType: value === "" ? null : (value as "full-time" | "part-time"),
             })
           }
         />
@@ -110,9 +109,7 @@ export function ExperienceEditor({
               )
             }
             onRemove={() =>
-              removeAt(experience.stories, index, (stories) =>
-                onChange({ ...experience, stories }),
-              )
+              removeAt(experience.stories, index, (stories) => onChange({ ...experience, stories }))
             }
           />
         )}
@@ -191,15 +188,9 @@ export function SkillEditor({
           label="Kind"
           value={skill.kind}
           options={["soft", "hard"]}
-          onChange={(kind) =>
-            onChange({ ...skill, kind: kind as "soft" | "hard" })
-          }
+          onChange={(kind) => onChange({ ...skill, kind: kind as "soft" | "hard" })}
         />
-        <Field
-          label="Name"
-          value={skill.name}
-          onChange={(name) => onChange({ ...skill, name })}
-        />
+        <Field label="Name" value={skill.name} onChange={(name) => onChange({ ...skill, name })} />
         <FormSelect
           label="Proficiency"
           value={skill.proficiency}
@@ -278,11 +269,7 @@ export function EducationEditor({
       </div>
       <Checks
         values={[
-          [
-            "Current",
-            education.isCurrent,
-            (isCurrent) => onChange({ ...education, isCurrent }),
-          ],
+          ["Current", education.isCurrent, (isCurrent) => onChange({ ...education, isCurrent })],
         ]}
       />
       <TextArea
@@ -328,13 +315,7 @@ export function HobbyEditor({
         />
       </div>
       <Checks
-        values={[
-          [
-            "Current",
-            hobby.isCurrent,
-            (isCurrent) => onChange({ ...hobby, isCurrent }),
-          ],
-        ]}
+        values={[["Current", hobby.isCurrent, (isCurrent) => onChange({ ...hobby, isCurrent })]]}
       />
       <TextArea
         label="Details"

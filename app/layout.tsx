@@ -32,9 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={cn("font-sans", inter.variable)}>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ClerkProvider dynamic>
           <ConvexClientProvider>{children}</ConvexClientProvider>
         </ClerkProvider>

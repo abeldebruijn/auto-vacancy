@@ -1,13 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  Authenticated,
-  Unauthenticated,
-  useAction,
-  useMutation,
-  useQuery,
-} from "convex/react";
+import { Authenticated, Unauthenticated, useAction, useMutation, useQuery } from "convex/react";
 import { SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
 import {
   BriefcaseBusiness,
@@ -40,13 +34,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Field,
@@ -207,9 +195,7 @@ function ProfileWorkspace() {
         pastedMarkdown={pastedMarkdown}
         status={status}
         onMarkdownChange={setPastedMarkdown}
-        onPasteImport={() =>
-          void handleImportMarkdown("pasted-cv.md", pastedMarkdown)
-        }
+        onPasteImport={() => void handleImportMarkdown("pasted-cv.md", pastedMarkdown)}
         onFileImport={(file) => void handleImport(file)}
         onManualStart={() => {
           setForm(emptyProfile);
@@ -230,8 +216,8 @@ function ProfileWorkspace() {
               Upload once, profile updates automatically
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Drop in a markdown CV and Auto Vacancy extracts your details,
-              experiences, skills, education, and hobbies into the editor below.
+              Drop in a markdown CV and Auto Vacancy extracts your details, experiences, skills,
+              education, and hobbies into the editor below.
             </p>
           </div>
           <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-neutral-300 bg-neutral-50 px-4 text-center text-sm">
@@ -258,17 +244,10 @@ function ProfileWorkspace() {
           )}
           <div className="mt-4 space-y-2">
             {(importedCvs as ImportedCvItem[]).map((item) => (
-              <div
-                key={item._id}
-                className="rounded-md border border-neutral-200 p-2 text-xs"
-              >
+              <div key={item._id} className="rounded-md border border-neutral-200 p-2 text-xs">
                 <div className="flex items-center justify-between gap-2">
                   <span className="truncate font-medium">{item.filename}</span>
-                  <Badge
-                    variant={
-                      item.status === "failed" ? "destructive" : "secondary"
-                    }
-                  >
+                  <Badge variant={item.status === "failed" ? "destructive" : "secondary"}>
                     {item.status}
                   </Badge>
                 </div>
@@ -287,9 +266,7 @@ function ProfileWorkspace() {
                     Apply preview
                   </Button>
                 )}
-                {item.error && (
-                  <p className="mt-2 text-red-600">{item.error}</p>
-                )}
+                {item.error && <p className="mt-2 text-red-600">{item.error}</p>}
               </div>
             ))}
           </div>
@@ -299,11 +276,7 @@ function ProfileWorkspace() {
           <div className="flex items-center gap-3">
             <Avatar className="size-20 rounded-lg" size="lg">
               {profileData?.pictureUrl ? (
-                <AvatarImage
-                  className="rounded-lg"
-                  src={profileData.pictureUrl}
-                  alt=""
-                />
+                <AvatarImage className="rounded-lg" src={profileData.pictureUrl} alt="" />
               ) : (
                 <AvatarFallback className="rounded-lg">
                   <UserRound className="size-6" />
@@ -311,9 +284,7 @@ function ProfileWorkspace() {
               )}
             </Avatar>
             <label className="text-sm">
-              <span className="rounded-md border border-neutral-200 px-2 py-1">
-                Upload
-              </span>
+              <span className="rounded-md border border-neutral-200 px-2 py-1">Upload</span>
               <input
                 className="sr-only"
                 type="file"
@@ -328,15 +299,11 @@ function ProfileWorkspace() {
           </div>
           <Field
             label="Image URL"
-            value={
-              form.profilePicture.kind === "url" ? form.profilePicture.url : ""
-            }
+            value={form.profilePicture.kind === "url" ? form.profilePicture.url : ""}
             onChange={(value) =>
               setForm((current) => ({
                 ...current,
-                profilePicture: value
-                  ? { kind: "url", url: value }
-                  : { kind: "none" },
+                profilePicture: value ? { kind: "url", url: value } : { kind: "none" },
               }))
             }
           />
@@ -363,11 +330,7 @@ function ProfileWorkspace() {
 
         <Panel title="General Details" icon={<UserRound className="size-4" />}>
           <div className="grid gap-3 md:grid-cols-2">
-            <Field
-              label="Name"
-              value={form.name}
-              onChange={(name) => setForm({ ...form, name })}
-            />
+            <Field label="Name" value={form.name} onChange={(name) => setForm({ ...form, name })} />
             <Field
               label="Birthday"
               value={form.birthday ?? ""}
@@ -386,9 +349,7 @@ function ProfileWorkspace() {
             <Field
               label="Place of residence"
               value={form.placeOfResidence ?? ""}
-              onChange={(placeOfResidence) =>
-                setForm({ ...form, placeOfResidence })
-              }
+              onChange={(placeOfResidence) => setForm({ ...form, placeOfResidence })}
             />
             <Field
               label="Portfolio link"
@@ -404,16 +365,12 @@ function ProfileWorkspace() {
           <ListField
             label="Other social links"
             values={form.otherSocialLinks}
-            onChange={(otherSocialLinks) =>
-              setForm({ ...form, otherSocialLinks })
-            }
+            onChange={(otherSocialLinks) => setForm({ ...form, otherSocialLinks })}
           />
           <ListField
             label="What characterises me"
             values={form.characteristics}
-            onChange={(characteristics) =>
-              setForm({ ...form, characteristics })
-            }
+            onChange={(characteristics) => setForm({ ...form, characteristics })}
           />
           <ListField
             label="In my next steps I would like to"
@@ -427,10 +384,7 @@ function ProfileWorkspace() {
           />
         </Panel>
 
-        <Panel
-          title="Experiences"
-          icon={<BriefcaseBusiness className="size-4" />}
-        >
+        <Panel title="Experiences" icon={<BriefcaseBusiness className="size-4" />}>
           <SectionList
             items={form.experiences}
             addLabel="Add experience"
@@ -462,22 +416,16 @@ function ProfileWorkspace() {
           <SectionList
             items={form.skills}
             addLabel="Add skill"
-            onAdd={() =>
-              setForm({ ...form, skills: [...form.skills, newSkill("hard")] })
-            }
+            onAdd={() => setForm({ ...form, skills: [...form.skills, newSkill("hard")] })}
             render={(skill, index) => (
               <SkillEditor
                 skill={skill}
                 evidenceOptions={evidenceOptions}
                 onChange={(next) =>
-                  replaceAt(form.skills, index, next, (skills) =>
-                    setForm({ ...form, skills }),
-                  )
+                  replaceAt(form.skills, index, next, (skills) => setForm({ ...form, skills }))
                 }
                 onRemove={() =>
-                  removeAt(form.skills, index, (skills) =>
-                    setForm({ ...form, skills }),
-                  )
+                  removeAt(form.skills, index, (skills) => setForm({ ...form, skills }))
                 }
               />
             )}
@@ -503,9 +451,7 @@ function ProfileWorkspace() {
                   )
                 }
                 onRemove={() =>
-                  removeAt(form.educations, index, (educations) =>
-                    setForm({ ...form, educations }),
-                  )
+                  removeAt(form.educations, index, (educations) => setForm({ ...form, educations }))
                 }
               />
             )}
@@ -516,21 +462,15 @@ function ProfileWorkspace() {
           <SectionList
             items={form.hobbies}
             addLabel="Add hobby"
-            onAdd={() =>
-              setForm({ ...form, hobbies: [...form.hobbies, newHobby()] })
-            }
+            onAdd={() => setForm({ ...form, hobbies: [...form.hobbies, newHobby()] })}
             render={(hobby, index) => (
               <HobbyEditor
                 hobby={hobby}
                 onChange={(next) =>
-                  replaceAt(form.hobbies, index, next, (hobbies) =>
-                    setForm({ ...form, hobbies }),
-                  )
+                  replaceAt(form.hobbies, index, next, (hobbies) => setForm({ ...form, hobbies }))
                 }
                 onRemove={() =>
-                  removeAt(form.hobbies, index, (hobbies) =>
-                    setForm({ ...form, hobbies }),
-                  )
+                  removeAt(form.hobbies, index, (hobbies) => setForm({ ...form, hobbies }))
                 }
               />
             )}

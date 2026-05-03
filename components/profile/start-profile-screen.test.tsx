@@ -21,16 +21,12 @@ describe("StartProfileScreen", () => {
   it("keeps pasted CV extraction disabled until markdown is present", () => {
     renderStartProfileScreen();
 
-    expect(
-      screen.getByRole("button", { name: /extract profile from pasted cv/i }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: /extract profile from pasted cv/i })).toBeDisabled();
   });
 
   it("extracts the profile from pasted markdown", async () => {
     const { props, rerender } = renderStartProfileScreen();
-    expect(screen.getByLabelText(/paste markdown cv/i).tagName).toBe(
-      "TEXTAREA",
-    );
+    expect(screen.getByLabelText(/paste markdown cv/i).tagName).toBe("TEXTAREA");
 
     fireEvent.input(screen.getByLabelText(/paste markdown cv/i), {
       target: { value: "# Abel\n\n## Experience\n- Developer" },
@@ -38,15 +34,10 @@ describe("StartProfileScreen", () => {
     expect(props.onMarkdownChange).toHaveBeenCalled();
 
     rerender(
-      <StartProfileScreen
-        {...props}
-        pastedMarkdown="# Abel\n\n## Experience\n- Developer"
-      />,
+      <StartProfileScreen {...props} pastedMarkdown="# Abel\n\n## Experience\n- Developer" />,
     );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /extract profile from pasted cv/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /extract profile from pasted cv/i }));
 
     expect(props.onPasteImport).toHaveBeenCalledOnce();
   });
@@ -56,9 +47,7 @@ describe("StartProfileScreen", () => {
     const file = new File(["# Abel"], "abel-cv.md", {
       type: "text/markdown",
     });
-    const input = document.querySelector(
-      'input[type="file"]',
-    ) as HTMLInputElement;
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
 
     // expect(input).toHaveAttribute("accept", ".md");
 
