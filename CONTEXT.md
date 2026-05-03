@@ -16,6 +16,10 @@ _Avoid_: Job, opening, listing
 The reusable source of truth for a Job Seeker's experience, skills, education, and facts.
 _Avoid_: Base CV, resume, profile
 
+**Imported CV**:
+Source material uploaded by a Job Seeker and used to extract Candidate Profile facts.
+_Avoid_: CV, generated CV
+
 **Application Package**:
 A vacancy-specific set of generated materials prepared from a Vacancy and Candidate Profile.
 _Avoid_: Application draft, tailored documents, submission
@@ -31,6 +35,7 @@ _Avoid_: Motivation letter
 ## Relationships
 
 - A **Job Seeker** owns one or more **Candidate Profiles**.
+- An **Imported CV** may be used to create or replace a **Candidate Profile**.
 - A **Job Seeker** prepares one **Application Package** for a **Vacancy**.
 - An **Application Package** is derived from exactly one **Vacancy** and one **Candidate Profile**.
 - An **Application Package** contains a tailored **CV** and **Cover Letter**.
@@ -46,4 +51,5 @@ _Avoid_: Motivation letter
 - "Vacancy" means an open job opportunity, not a rental or occupancy slot.
 - "User" is implementation language; use **Job Seeker** for the domain actor.
 - A generated **CV** is an output, not the canonical source of the Job Seeker's facts.
+- An **Imported CV** is input source material, not the generated **CV**.
 - **Application Package** does not imply employer submission; submission is outside current scope.
