@@ -124,6 +124,10 @@ export const emptyProfile: ProfileForm = {
   hobbies: [],
 };
 
+export function isMarkdownCvFile(fileName: string) {
+  return fileName.toLowerCase().endsWith(".md");
+}
+
 export function replaceAt<T>(
   items: T[],
   index: number,

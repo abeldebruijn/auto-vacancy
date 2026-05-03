@@ -25,6 +25,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import {
   emptyProfile,
   fromProfileData,
+  isMarkdownCvFile,
   newEducation,
   newExperience,
   newHobby,
@@ -152,12 +153,12 @@ function ProfileWorkspace() {
         ? "Imported CV applied."
         : result.status === "preview"
           ? "Replacement preview ready."
-          : "Extraction failed.",
+          : (result.error ?? "Extraction failed."),
     );
   }
 
   async function handleImport(file: File) {
-    if (!file.name.toLowerCase().endsWith(".md")) {
+    if (!isMarkdownCvFile(file.name)) {
       setStatus("Upload a .md file.");
       return;
     }

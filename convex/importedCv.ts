@@ -118,6 +118,7 @@ export const importMarkdown = action({
       v.literal("preview"),
       v.literal("failed"),
     ),
+    error: v.union(v.string(), v.null()),
   }),
   handler: async (
     ctx,
@@ -125,6 +126,7 @@ export const importMarkdown = action({
   ): Promise<{
     importedCvId: Id<"importedCvs">;
     status: "applied" | "preview" | "failed";
+    error: string | null;
   }> => {
     const started: {
       importedCvId: Id<"importedCvs">;
@@ -151,15 +153,26 @@ export const importMarkdown = action({
         profile,
         error: null,
       });
-      return { importedCvId: started.importedCvId, status };
+      return { importedCvId: started.importedCvId, status, error: null };
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Extraction failed";
+      const readableError = errorMessage.includes(
+        "Configure AI_GATEWAY_API_KEY",
+      )
+        ? "AI Gateway is not configured for Convex. Set AI_GATEWAY_API_KEY in Convex environment variables and try again."
+        : errorMessage;
       await ctx.runMutation(api.profile.finishImport, {
         importedCvId: started.importedCvId,
         status: "failed",
         profile: null,
-        error: error instanceof Error ? error.message : "Extraction failed",
+        error: readableError,
       });
-      return { importedCvId: started.importedCvId, status: "failed" };
+      return {
+        importedCvId: started.importedCvId,
+        status: "failed",
+        error: readableError,
+      };
     }
   },
 });
