@@ -1,7 +1,7 @@
 import type { Id } from "@/convex/_generated/dataModel";
 
-export function vacancyReviewPath(_slug: string, id: Id<"vacancyUnderstandings">) {
-  return `/vacancies/${id}`;
+export function vacancyReviewPath(slug: string, id: Id<"vacancyUnderstandings">) {
+  return `/vacancies/${slug}-${id}`;
 }
 
 export function statusLabel(status: string) {

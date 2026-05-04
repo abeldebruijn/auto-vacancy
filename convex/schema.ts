@@ -131,6 +131,7 @@ export default defineSchema({
     ),
     error: v.union(v.string(), v.null()),
     slug: v.string(),
+    archivedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

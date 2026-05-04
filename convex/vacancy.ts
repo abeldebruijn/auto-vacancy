@@ -26,6 +26,7 @@ const vacancyUnderstandingOutputValidator = v.object({
   status: vacancyStatusValidator,
   error: v.union(v.string(), v.null()),
   slug: v.string(),
+  archivedAt: v.optional(v.number()),
   createdAt: v.number(),
   updatedAt: v.number(),
 });
@@ -134,6 +135,10 @@ function slugify(value: string | null) {
   return slug || "vacancy";
 }
 
+function vacancyReviewPath(slug: string, id: Id<"vacancyUnderstandings">) {
+  return `/vacancies/${slug}-${id}`;
+}
+
 export const create = mutation({
   args: { vacancyText: v.string() },
   returns: v.id("vacancyUnderstandings"),
@@ -200,16 +205,35 @@ export const get = query({
 });
 
 export const list = query({
-  args: {},
+  args: { includeArchived: v.boolean() },
   returns: v.array(vacancyUnderstandingOutputValidator),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const ownerToken = await requireOwnerToken(ctx);
     const vacancies = await ctx.db
       .query("vacancyUnderstandings")
       .withIndex("by_ownerToken", (q) => q.eq("ownerToken", ownerToken))
       .collect();
 
-    return vacancies.sort((a, b) => b.createdAt - a.createdAt);
+    return vacancies
+      .filter((vacancy) => args.includeArchived || vacancy.archivedAt === undefined)
+      .sort((a, b) => b.createdAt - a.createdAt);
+  },
+});
+
+export const setArchived = mutation({
+  args: {
+    vacancyUnderstandingId: v.id("vacancyUnderstandings"),
+    archived: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const ownerToken = await requireOwnerToken(ctx);
+    const vacancy = await getOwnedVacancy(ctx, args.vacancyUnderstandingId, ownerToken);
+    await ctx.db.patch(vacancy._id, {
+      archivedAt: args.archived ? Date.now() : undefined,
+      updatedAt: Date.now(),
+    });
+    return null;
   },
 });
 
@@ -321,7 +345,7 @@ export const understandsVacancy = mutation({
       status: "ready",
       updatedAt: Date.now(),
     });
-    return `/vacancies/${vacancy._id}`;
+    return vacancyReviewPath(vacancy.slug, vacancy._id);
   },
 });
 

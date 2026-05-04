@@ -1,8 +1,8 @@
 "use client";
 
-import { Authenticated, Unauthenticated, useQuery } from "convex/react";
+import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
 import { SignInButton } from "@clerk/nextjs";
-import { ExternalLink } from "lucide-react";
+import { Archive, ArchiveRestore, ExternalLink } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { AppHeader } from "@/components/profile/app-header";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +38,7 @@ export function VacancyDetailApp({ slugId }: { slugId: string }) {
 
 function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
   const detail = useQuery(api.vacancy.getBySlugId, { slugId });
+  const setArchived = useMutation(api.vacancy.setArchived);
 
   if (detail === undefined) {
     return (
@@ -69,9 +70,36 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
             {detail.vacancy.title ?? "Vacancy"} at {detail.vacancy.companyName ?? "Unknown company"}
           </h1>
         </div>
-        <Badge variant={detail.vacancy.status === "ready" ? "default" : "secondary"}>
-          {statusLabel(detail.vacancy.status)}
-        </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          {detail.vacancy.archivedAt !== undefined ? (
+            <Badge variant="outline">Archived</Badge>
+          ) : null}
+          <Badge variant={detail.vacancy.status === "ready" ? "default" : "secondary"}>
+            {statusLabel(detail.vacancy.status)}
+          </Badge>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              void setArchived({
+                vacancyUnderstandingId: detail.vacancy._id,
+                archived: detail.vacancy.archivedAt === undefined,
+              })
+            }
+          >
+            {detail.vacancy.archivedAt === undefined ? (
+              <>
+                <Archive className="size-4" />
+                Archive
+              </>
+            ) : (
+              <>
+                <ArchiveRestore className="size-4" />
+                Unarchive
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">

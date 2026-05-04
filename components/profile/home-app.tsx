@@ -10,7 +10,8 @@ import { isMarkdownCvFile } from "@/lib/candidate-profile";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -42,7 +43,8 @@ export function HomeApp() {
 function HomeWorkspace() {
   const router = useRouter();
   const profileData = useQuery(api.profile.get);
-  const vacancies = useQuery(api.vacancy.list);
+  const [includeArchived, setIncludeArchived] = useState(false);
+  const vacancies = useQuery(api.vacancy.list, { includeArchived });
   const importMarkdown = useAction(api.importedCv.importMarkdown);
   const createVacancy = useMutation(api.vacancy.create);
   const [pastedMarkdown, setPastedMarkdown] = useState("");
@@ -97,7 +99,7 @@ function HomeWorkspace() {
     }
   }
 
-  if (profileData === undefined || vacancies === undefined) {
+  if (profileData === undefined) {
     return (
       <main className="grid min-h-[70vh] place-items-center">
         <div className="w-full max-w-3xl space-y-4 px-4">
@@ -156,25 +158,48 @@ function HomeWorkspace() {
           </form>
         </CardContent>
       </Card>
-      <VacancyTable vacancies={vacancies} onOpen={(path) => router.push(path)} />
+      <VacancyTable
+        vacancies={vacancies}
+        includeArchived={includeArchived}
+        onIncludeArchivedChange={setIncludeArchived}
+        onOpen={(path) => router.push(path)}
+      />
     </main>
   );
 }
 
 function VacancyTable({
   vacancies,
+  includeArchived,
+  onIncludeArchivedChange,
   onOpen,
 }: {
-  vacancies: Doc<"vacancyUnderstandings">[];
+  vacancies: Doc<"vacancyUnderstandings">[] | undefined;
+  includeArchived: boolean;
+  onIncludeArchivedChange: (includeArchived: boolean) => void;
   onOpen: (path: string) => void;
 }) {
   return (
     <Card className="w-full">
       <CardHeader>
         <CardTitle className="text-2xl">Vacancy Understandings</CardTitle>
+        <CardAction>
+          <label className="flex items-center gap-2 pt-1 text-sm font-medium text-muted-foreground">
+            <Checkbox
+              checked={includeArchived}
+              onCheckedChange={(checked) => onIncludeArchivedChange(checked === true)}
+            />
+            Show archived
+          </label>
+        </CardAction>
       </CardHeader>
       <CardContent>
-        {vacancies.length === 0 ? (
+        {vacancies === undefined ? (
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : vacancies.length === 0 ? (
           <p className="text-sm text-muted-foreground">No Vacancy Understandings yet.</p>
         ) : (
           <Table className="table-fixed">
@@ -201,13 +226,18 @@ function VacancyTable({
                     </span>
                   </TableCell>
                   <TableCell className="overflow-hidden">
-                    <Badge
-                      className="max-w-full truncate"
-                      title={statusLabel(vacancy.status)}
-                      variant={vacancy.status === "ready" ? "default" : "secondary"}
-                    >
-                      {statusLabel(vacancy.status)}
-                    </Badge>
+                    <div className="flex flex-wrap gap-1">
+                      <Badge
+                        className="max-w-full truncate"
+                        title={statusLabel(vacancy.status)}
+                        variant={vacancy.status === "ready" ? "default" : "secondary"}
+                      >
+                        {statusLabel(vacancy.status)}
+                      </Badge>
+                      {vacancy.archivedAt !== undefined ? (
+                        <Badge variant="outline">Archived</Badge>
+                      ) : null}
+                    </div>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
                     {new Date(vacancy.createdAt).toLocaleDateString()}
