@@ -1,13 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
 import { SignInButton } from "@clerk/nextjs";
-import { Archive, ArchiveRestore, ExternalLink } from "lucide-react";
+import { Archive, ArchiveRestore, ChevronDown, ExternalLink } from "lucide-react";
 import { api } from "@/convex/_generated/api";
+import type { Doc } from "@/convex/_generated/dataModel";
 import { AppHeader } from "@/components/profile/app-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Skeleton } from "@/components/ui/skeleton";
 import { statusLabel } from "@/components/vacancy/vacancy-utils";
 
@@ -113,24 +116,7 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
                 <p className="text-sm text-muted-foreground">No company summaries available.</p>
               ) : (
                 detail.researchSummaries.map((summary) => (
-                  <article key={summary._id} className="space-y-2 border-b pb-4 last:border-0">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h2 className="font-medium">{summary.sourceTitle}</h2>
-                      <Badge variant="outline">{summary.sourceType}</Badge>
-                    </div>
-                    <p className="whitespace-pre-line text-sm leading-6 text-muted-foreground">
-                      {summary.summary}
-                    </p>
-                    <a
-                      className="inline-flex items-center gap-1 text-sm text-blue-700 hover:underline"
-                      href={summary.sourceUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {summary.sourceUrl}
-                      <ExternalLink className="size-3" />
-                    </a>
-                  </article>
+                  <CompanyResearchSummary key={summary._id} summary={summary} />
                 ))
               )}
             </CardContent>
@@ -196,6 +182,59 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
         </aside>
       </div>
     </main>
+  );
+}
+
+function CompanyResearchSummary({ summary }: { summary: Doc<"vacancyResearchSummaries"> }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <Collapsible
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      className="space-y-2 border-b pb-4 last:border-0"
+      render={<article />}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="font-medium">{summary.sourceTitle}</h2>
+        <Badge variant="outline">{summary.sourceType}</Badge>
+      </div>
+      <CollapsibleContent keepMounted>
+        <p
+          className={
+            isOpen
+              ? "whitespace-pre-line text-sm leading-6 text-muted-foreground"
+              : "line-clamp-4 whitespace-pre-line text-sm leading-6 text-muted-foreground"
+          }
+        >
+          {summary.summary}
+        </p>
+      </CollapsibleContent>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <a
+          className="inline-flex items-center gap-1 text-sm text-blue-700 hover:underline"
+          href={summary.sourceUrl}
+          target="_blank"
+          rel="noreferrer"
+        >
+          {summary.sourceUrl}
+          <ExternalLink className="size-3" />
+        </a>
+        <CollapsibleTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label={isOpen ? "Show less" : "Show more"}
+            >
+              {isOpen ? "Show less" : "Show more"}
+              <ChevronDown className={isOpen ? "size-4 rotate-180" : "size-4"} />
+            </Button>
+          }
+        />
+      </div>
+    </Collapsible>
   );
 }
 
