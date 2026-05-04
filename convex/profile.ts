@@ -493,6 +493,94 @@ export const setPicture = mutation({
   },
 });
 
+export const addSkill = mutation({
+  args: {
+    vacancyRequiredSkillId: v.optional(v.id("vacancyRequiredSkills")),
+    kind: v.union(v.literal("soft"), v.literal("hard")),
+    name: v.string(),
+    proficiency: v.union(
+      v.literal("low"),
+      v.literal("medium"),
+      v.literal("high"),
+      v.literal("expert"),
+    ),
+    experienceIds: v.array(v.id("experiences")),
+    storyIds: v.array(v.id("experienceStories")),
+  },
+  returns: v.id("skills"),
+  handler: async (ctx, args) => {
+    const ownerToken = await requireOwnerToken(ctx);
+    const profile = await getOwnedProfile(ctx, ownerToken);
+    if (profile === null) {
+      throw new Error("Create a Candidate Profile before adding a skill");
+    }
+
+    const name = args.name.trim() || "Untitled skill";
+    const existingSkills = await ctx.db
+      .query("skills")
+      .withIndex("by_profileId_and_kind", (q) => q.eq("profileId", profile._id))
+      .take(500);
+    const existingSkill = existingSkills.find(
+      (skill) => skill.kind === args.kind && skill.name.trim().toLowerCase() === name.toLowerCase(),
+    );
+
+    const ownedExperienceIds = new Set(
+      (
+        await ctx.db
+          .query("experiences")
+          .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
+          .take(300)
+      ).map((experience) => experience._id),
+    );
+    const ownedStoryIds = new Set(
+      (
+        await ctx.db
+          .query("experienceStories")
+          .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
+          .take(500)
+      ).map((story) => story._id),
+    );
+    const experienceIds = args.experienceIds.filter((id) => ownedExperienceIds.has(id));
+    const storyIds = args.storyIds.filter((id) => ownedStoryIds.has(id));
+
+    const skillId =
+      existingSkill?._id ??
+      (await ctx.db.insert("skills", {
+        profileId: profile._id,
+        ownerToken,
+        kind: args.kind,
+        name,
+        proficiency: args.proficiency,
+        experienceIds,
+        storyIds,
+        sortOrder: existingSkills.reduce((max, skill) => Math.max(max, skill.sortOrder), -1) + 1,
+      }));
+
+    if (existingSkill !== undefined) {
+      await ctx.db.patch(skillId, {
+        proficiency: args.proficiency,
+        experienceIds: Array.from(new Set([...existingSkill.experienceIds, ...experienceIds])),
+        storyIds: Array.from(new Set([...existingSkill.storyIds, ...storyIds])),
+      });
+    }
+
+    if (args.vacancyRequiredSkillId !== undefined) {
+      const requiredSkill = await ctx.db.get(args.vacancyRequiredSkillId);
+      if (requiredSkill !== null && requiredSkill.ownerToken === ownerToken) {
+        await ctx.db.patch(requiredSkill._id, {
+          matchStatus: "matched",
+          matchedCandidateSkillIds: Array.from(
+            new Set([...requiredSkill.matchedCandidateSkillIds, skillId]),
+          ),
+        });
+      }
+    }
+
+    await ctx.db.patch(profile._id, { updatedAt: Date.now() });
+    return skillId;
+  },
+});
+
 export const startImport = mutation({
   args: { filename: v.string(), markdown: v.string() },
   returns: v.object({
