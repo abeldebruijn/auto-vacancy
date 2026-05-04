@@ -1,10 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Authenticated, Unauthenticated, useAction, useMutation, useQuery } from "convex/react";
+import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
 import { SignInButton } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowRight, ExternalLink, Send, Sparkles } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Clock,
+  ExternalLink,
+  RefreshCw,
+  Send,
+  Sparkles,
+} from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { AppHeader } from "@/components/profile/app-header";
@@ -55,11 +64,12 @@ function SpecifyVacancyWorkspace({
   const provideHomepage = useMutation(api.vacancy.provideHomepage);
   const answerQuestion = useMutation(api.vacancy.answerQuestion);
   const understandsVacancy = useMutation(api.vacancy.understandsVacancy);
-  const analyzeVacancy = useAction(api.vacancyAgents.analyze);
+  const startAnalysis = useMutation(api.vacancy.startAnalysis);
   const analysisStartedRef = useRef(false);
   const [homepageUrl, setHomepageUrl] = useState("");
   const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
+  const [isRetryingAnalysis, setIsRetryingAnalysis] = useState(false);
 
   const pendingQuestions = useMemo(() => {
     return detail?.questions.filter((question) => question.answer === null).slice(0, 3) ?? [];
@@ -68,8 +78,8 @@ function SpecifyVacancyWorkspace({
   useEffect(() => {
     if (detail?.vacancy.status !== "processing" || analysisStartedRef.current) return;
     analysisStartedRef.current = true;
-    void analyzeVacancy({ vacancyUnderstandingId: detail.vacancy._id });
-  }, [analyzeVacancy, detail?.vacancy._id, detail?.vacancy.status]);
+    void startAnalysis({ vacancyUnderstandingId: detail.vacancy._id });
+  }, [detail?.vacancy._id, detail?.vacancy.status, startAnalysis]);
 
   if (detail === undefined) {
     return (
@@ -101,7 +111,7 @@ function SpecifyVacancyWorkspace({
     setMessage("Researching company pages...");
     try {
       await provideHomepage({ vacancyUnderstandingId: detail.vacancy._id, homepageUrl });
-      await analyzeVacancy({ vacancyUnderstandingId: detail.vacancy._id });
+      await startAnalysis({ vacancyUnderstandingId: detail.vacancy._id });
       setMessage(null);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not save homepage.");
@@ -129,6 +139,20 @@ function SpecifyVacancyWorkspace({
       router.push(path);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not finish yet.");
+    }
+  }
+
+  async function retryAnalysis() {
+    if (!detail || isRetryingAnalysis) return;
+    setIsRetryingAnalysis(true);
+    setMessage("Retrying company research...");
+    try {
+      await startAnalysis({ vacancyUnderstandingId: detail.vacancy._id });
+      setMessage(null);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not retry company research.");
+    } finally {
+      setIsRetryingAnalysis(false);
     }
   }
 
@@ -178,9 +202,7 @@ function SpecifyVacancyWorkspace({
                 Auto Vacancy could not complete the analysis. Retry the analysis or provide the
                 company homepage when asked.
               </p>
-              <Button onClick={() => void analyzeVacancy({ vacancyUnderstandingId })}>
-                Try again
-              </Button>
+              <Button onClick={() => void retryAnalysis()}>Try again</Button>
             </CardContent>
           </Card>
         ) : null}
@@ -230,6 +252,12 @@ function SpecifyVacancyWorkspace({
       </section>
 
       <aside className="space-y-4">
+        <CompanyResearchProgress
+          detail={detail}
+          isRetrying={isRetryingAnalysis}
+          onRetry={() => void retryAnalysis()}
+        />
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Detected details</CardTitle>
@@ -263,6 +291,100 @@ function SpecifyVacancyWorkspace({
         ) : null}
       </aside>
     </main>
+  );
+}
+
+function CompanyResearchProgress({
+  detail,
+  isRetrying,
+  onRetry,
+}: {
+  detail: NonNullable<typeof api.vacancy.get._returnType>;
+  isRetrying: boolean;
+  onRetry: () => void;
+}) {
+  const companyKnown = detail.vacancy.companyName !== null;
+  const homepageKnown = detail.vacancy.companyHomepageUrl !== null;
+  const summariesCount = detail.researchSummaries.length;
+  const hasResearch = summariesCount > 0;
+  const isProcessing = detail.vacancy.status === "processing";
+  const needsHomepage = detail.vacancy.status === "needs_homepage";
+  const steps = [
+    {
+      label: "Company",
+      done: companyKnown,
+      value: detail.vacancy.companyName ?? (isProcessing ? "Detecting" : "Unknown"),
+    },
+    {
+      label: "Homepage",
+      done: homepageKnown,
+      value: detail.vacancy.companyHomepageUrl ?? (needsHomepage ? "Needed" : "Not found"),
+    },
+    {
+      label: "Public sources",
+      done: hasResearch,
+      value: hasResearch ? `${summariesCount} summarized` : isProcessing ? "Checking" : "None yet",
+    },
+  ];
+  const completed = steps.filter((step) => step.done).length;
+  const progress = Math.round((completed / steps.length) * 100);
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-3">
+          <CardTitle className="text-base">Company research</CardTitle>
+          <Badge variant={completed === steps.length ? "default" : "secondary"}>
+            {completed}/{steps.length}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4 text-sm">
+        <div className="h-2 overflow-hidden rounded-full bg-neutral-200">
+          <div
+            className="h-full rounded-full bg-neutral-950 transition-all"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <div className="space-y-3">
+          {steps.map((step) => (
+            <div key={step.label} className="flex items-start gap-3">
+              <span
+                className={
+                  step.done
+                    ? "mt-0.5 inline-flex size-5 items-center justify-center rounded-full bg-neutral-950 text-white"
+                    : "mt-0.5 inline-flex size-5 items-center justify-center rounded-full border bg-white text-muted-foreground"
+                }
+              >
+                {step.done ? <Check className="size-3" /> : <Clock className="size-3" />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium">{step.label}</span>
+                <span className="block truncate text-muted-foreground" title={step.value}>
+                  {step.value}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+        {detail.vacancy.error ? (
+          <div className="space-y-3 rounded-md border border-red-200 bg-red-50 p-3">
+            <p className="text-xs text-red-700">{detail.vacancy.error}</p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="bg-white"
+              onClick={onRetry}
+              disabled={isRetrying}
+            >
+              <RefreshCw className={isRetrying ? "size-4 animate-spin" : "size-4"} />
+              {isRetrying ? "Retrying" : "Retry"}
+            </Button>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 

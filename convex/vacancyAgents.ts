@@ -3,9 +3,11 @@
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { v } from "convex/values";
-import { action } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
+import type { ActionCtx } from "./_generated/server";
 import { api } from "./_generated/api";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 
 const requiredSkillSchema = z.object({
   kind: z.enum(["soft", "hard"]),
@@ -41,8 +43,16 @@ const researchSummarySchema = z.object({
 type CandidateProfileData = typeof api.profile.get._returnType;
 type VacancyDetail = typeof api.vacancy.get._returnType;
 
+async function requireOwnerToken(ctx: ActionCtx) {
+  const identity = await ctx.auth.getUserIdentity();
+  if (identity === null) {
+    throw new Error("Authentication required");
+  }
+  return identity.tokenIdentifier;
+}
+
 function modelId() {
-  return process.env.AI_GATEWAY_MODEL ?? "openai/gpt-5.1-mini";
+  return process.env.AI_GATEWAY_MODEL ?? "openai/gpt-5.5";
 }
 
 function normalizeUrl(url: string | null) {
@@ -434,18 +444,21 @@ function timeoutFallback(args: {
   };
 }
 
-export const analyze = action({
-  args: { vacancyUnderstandingId: v.id("vacancyUnderstandings") },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const detail: VacancyDetail = await ctx.runQuery(api.vacancy.get, {
-      vacancyUnderstandingId: args.vacancyUnderstandingId,
-    });
-    const profileData: CandidateProfileData = await ctx.runQuery(api.profile.get, {});
-    if (detail === null || profileData === null) {
-      throw new Error("Vacancy Understanding not found");
-    }
-    try {
+async function runAnalysis(
+  ctx: ActionCtx,
+  args: { vacancyUnderstandingId: Id<"vacancyUnderstandings">; ownerToken: string },
+) {
+  const detail: VacancyDetail = await ctx.runQuery(internal.vacancy.getForAnalysis, {
+    vacancyUnderstandingId: args.vacancyUnderstandingId,
+    ownerToken: args.ownerToken,
+  });
+  const profileData: CandidateProfileData = await ctx.runQuery(internal.profile.getForAnalysis, {
+    ownerToken: args.ownerToken,
+  });
+  if (detail === null || profileData === null) {
+    throw new Error("Vacancy Understanding not found");
+  }
+  try {
       const candidateSummary = [
         `Skills: ${profileData.skills.map((skill) => `${skill.name} (${skill.kind})`).join(", ")}`,
         `Experiences: ${profileData.experiences.map((experience) => experience.employer).join(", ")}`,
@@ -477,6 +490,7 @@ export const analyze = action({
           : [];
       await ctx.runMutation(internal.vacancy.finishAnalysis, {
         vacancyUnderstandingId: args.vacancyUnderstandingId,
+        ownerToken: args.ownerToken,
         companyName,
         companyHomepageUrl: homepageUrl,
         companyConfidence: output.companyConfidence,
@@ -496,7 +510,7 @@ export const analyze = action({
         questions,
       });
       return null;
-    } catch (error) {
+  } catch (error) {
       const message = error instanceof Error ? error.message : "Vacancy analysis failed";
       const readableError = message.includes("Configure AI_GATEWAY_API_KEY")
         ? "AI Gateway is not configured for Convex. Set AI_GATEWAY_API_KEY in Convex environment variables and try again."
@@ -508,6 +522,7 @@ export const analyze = action({
       });
       await ctx.runMutation(internal.vacancy.finishAnalysis, {
         vacancyUnderstandingId: args.vacancyUnderstandingId,
+        ownerToken: args.ownerToken,
         companyName: fallback.companyName,
         companyHomepageUrl: fallback.companyHomepageUrl,
         companyConfidence: fallback.companyConfidence,
@@ -523,6 +538,28 @@ export const analyze = action({
         questions: fallback.questions,
       });
       return null;
-    }
+  }
+}
+
+export const analyzeScheduled = internalAction({
+  args: {
+    vacancyUnderstandingId: v.id("vacancyUnderstandings"),
+    ownerToken: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    return await runAnalysis(ctx, args);
+  },
+});
+
+export const analyze = action({
+  args: { vacancyUnderstandingId: v.id("vacancyUnderstandings") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const ownerToken = await requireOwnerToken(ctx);
+    return await runAnalysis(ctx, {
+      vacancyUnderstandingId: args.vacancyUnderstandingId,
+      ownerToken,
+    });
   },
 });

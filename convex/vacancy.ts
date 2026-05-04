@@ -1,6 +1,7 @@
 import { v } from "convex/values";
-import { internalMutation, mutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import {
   requiredSkillInputValidator,
@@ -139,6 +140,88 @@ function vacancyReviewPath(slug: string, id: Id<"vacancyUnderstandings">) {
   return `/vacancies/${slug}-${id}`;
 }
 
+function cleanDetailAnswer(value: string) {
+  return value
+    .trim()
+    .replace(/^(?:the\s+)?(?:company|employer|organisation|organization|addressee|title)\s*(?:is|:)\s*/i, "")
+    .replace(/\s+/g, " ")
+    .replace(/[.。]+$/g, "")
+    .trim();
+}
+
+function extractFirstMatch(answer: string, patterns: RegExp[]) {
+  for (const pattern of patterns) {
+    const match = answer.match(pattern)?.[1];
+    if (match) {
+      const cleaned = cleanDetailAnswer(match);
+      if (cleaned !== "") return cleaned;
+    }
+  }
+  return null;
+}
+
+function detailUpdatesFromAnswer(args: {
+  shortPrompt: string;
+  prompt: string;
+  answer: string;
+  current: {
+    companyName: string | null;
+    title: string | null;
+    coverLetterAddressee: string | null;
+  };
+}) {
+  const shortPrompt = args.shortPrompt.toLowerCase();
+  const prompt = args.prompt.toLowerCase();
+  const patch: {
+    companyName?: string;
+    companyConfidence?: number;
+    title?: string;
+    titleConfidence?: number;
+    coverLetterAddressee?: string;
+    slug?: string;
+  } = {};
+
+  if (shortPrompt.includes("company") || prompt.includes("what company")) {
+    const companyName =
+      extractFirstMatch(args.answer, [
+        /(?:company|employer|organisation|organization)\s*(?:is|:)\s*(.+?)(?:,|;|\n|\.|\s+and\s+|$)/i,
+        /(?:vacancy|role|position)\s*(?:is\s*)?for\s+(.+?)(?:,|;|\n|\.|\s+and\s+|$)/i,
+      ]) ?? cleanDetailAnswer(args.answer.split(/\n|;/)[0] ?? args.answer);
+    if (companyName !== "") {
+      patch.companyName = companyName;
+      patch.companyConfidence = 1;
+      patch.slug = slugify(companyName);
+    }
+
+    const coverLetterAddressee = extractFirstMatch(args.answer, [
+      /(?:cover letter|letter)\s*(?:should\s*)?(?:go\s*)?(?:be\s*)?(?:addressed\s*)?to\s+([^,;\n.]+)/i,
+      /(?:addressee|address(?:ed)? to)\s*(?:is|:)?\s*([^,;\n.]+)/i,
+    ]);
+    if (coverLetterAddressee !== null) {
+      patch.coverLetterAddressee = coverLetterAddressee;
+    } else if (args.current.coverLetterAddressee === null) {
+      const secondChunk = args.answer.split(/,|;|\n/)[1];
+      const fallbackAddressee = secondChunk ? cleanDetailAnswer(secondChunk) : "";
+      if (fallbackAddressee !== "") {
+        patch.coverLetterAddressee = fallbackAddressee;
+      }
+    }
+  }
+
+  if (shortPrompt.includes("title") || prompt.includes("vacancy title")) {
+    const title = cleanDetailAnswer(args.answer);
+    if (title !== "") {
+      patch.title = title;
+      patch.titleConfidence = 1;
+      if (args.current.companyName === null && patch.companyName === undefined) {
+        patch.slug = slugify(title);
+      }
+    }
+  }
+
+  return patch;
+}
+
 export const create = mutation({
   args: { vacancyText: v.string() },
   returns: v.id("vacancyUnderstandings"),
@@ -174,6 +257,25 @@ export const create = mutation({
   },
 });
 
+export const startAnalysis = mutation({
+  args: { vacancyUnderstandingId: v.id("vacancyUnderstandings") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const ownerToken = await requireOwnerToken(ctx);
+    const vacancy = await getOwnedVacancy(ctx, args.vacancyUnderstandingId, ownerToken);
+    await ctx.db.patch(vacancy._id, {
+      status: "processing",
+      error: null,
+      updatedAt: Date.now(),
+    });
+    await ctx.scheduler.runAfter(0, internal.vacancyAgents.analyzeScheduled, {
+      vacancyUnderstandingId: vacancy._id,
+      ownerToken,
+    });
+    return null;
+  },
+});
+
 export const get = query({
   args: { vacancyUnderstandingId: v.id("vacancyUnderstandings") },
   returns: v.union(vacancyDetailOutputValidator, v.null()),
@@ -181,6 +283,38 @@ export const get = query({
     const ownerToken = await requireOwnerToken(ctx);
     const vacancy = await ctx.db.get(args.vacancyUnderstandingId);
     if (vacancy === null || vacancy.ownerToken !== ownerToken) {
+      return null;
+    }
+    const researchSummaries = await ctx.db
+      .query("vacancyResearchSummaries")
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
+      .take(20);
+    const requiredSkills = await ctx.db
+      .query("vacancyRequiredSkills")
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
+      .take(200);
+    const questions = await ctx.db
+      .query("vacancyQuestions")
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
+      .take(100);
+    return {
+      vacancy,
+      researchSummaries,
+      requiredSkills: requiredSkills.sort((a, b) => a.sortOrder - b.sortOrder),
+      questions: questions.sort((a, b) => a.sortOrder - b.sortOrder),
+    };
+  },
+});
+
+export const getForAnalysis = internalQuery({
+  args: {
+    vacancyUnderstandingId: v.id("vacancyUnderstandings"),
+    ownerToken: v.string(),
+  },
+  returns: v.union(vacancyDetailOutputValidator, v.null()),
+  handler: async (ctx, args) => {
+    const vacancy = await ctx.db.get(args.vacancyUnderstandingId);
+    if (vacancy === null || vacancy.ownerToken !== args.ownerToken) {
       return null;
     }
     const researchSummaries = await ctx.db
@@ -313,10 +447,27 @@ export const answerQuestion = mutation({
     if (answer === "") {
       throw new Error("Answer cannot be empty");
     }
+    const vacancy = await getOwnedVacancy(ctx, question.vacancyUnderstandingId, ownerToken);
+    const detailPatch = detailUpdatesFromAnswer({
+      shortPrompt: question.shortPrompt,
+      prompt: question.prompt,
+      answer,
+      current: {
+        companyName: vacancy.companyName,
+        title: vacancy.title,
+        coverLetterAddressee: vacancy.coverLetterAddressee,
+      },
+    });
     await ctx.db.patch(question._id, {
       answer,
       answeredAt: Date.now(),
     });
+    if (Object.keys(detailPatch).length > 0) {
+      await ctx.db.patch(vacancy._id, {
+        ...detailPatch,
+        updatedAt: Date.now(),
+      });
+    }
     return null;
   },
 });
@@ -365,11 +516,11 @@ export const finishAnalysis = internalMutation({
     researchSummaries: v.array(researchSummaryInputValidator),
     requiredSkills: v.array(requiredSkillInputValidator),
     questions: v.array(vacancyQuestionInputValidator),
+    ownerToken: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const ownerToken = await requireOwnerToken(ctx);
-    const vacancy = await getOwnedVacancy(ctx, args.vacancyUnderstandingId, ownerToken);
+    const vacancy = await getOwnedVacancy(ctx, args.vacancyUnderstandingId, args.ownerToken);
     for await (const summary of ctx.db
       .query("vacancyResearchSummaries")
       .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))) {
@@ -403,7 +554,7 @@ export const finishAnalysis = internalMutation({
     for (const summary of args.researchSummaries) {
       await ctx.db.insert("vacancyResearchSummaries", {
         vacancyUnderstandingId: vacancy._id,
-        ownerToken,
+        ownerToken: args.ownerToken,
         sourceType: summary.sourceType,
         sourceTitle: summary.sourceTitle,
         sourceUrl: summary.sourceUrl,
@@ -415,7 +566,7 @@ export const finishAnalysis = internalMutation({
     for (const [sortOrder, skill] of args.requiredSkills.entries()) {
       await ctx.db.insert("vacancyRequiredSkills", {
         vacancyUnderstandingId: vacancy._id,
-        ownerToken,
+        ownerToken: args.ownerToken,
         kind: skill.kind,
         name: skill.name,
         evidence: skill.evidence,
@@ -427,7 +578,7 @@ export const finishAnalysis = internalMutation({
     for (const [sortOrder, question] of args.questions.entries()) {
       await ctx.db.insert("vacancyQuestions", {
         vacancyUnderstandingId: vacancy._id,
-        ownerToken,
+        ownerToken: args.ownerToken,
         prompt: question.prompt,
         shortPrompt: question.shortPrompt,
         reason: question.reason,
