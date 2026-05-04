@@ -20,6 +20,10 @@ _Avoid_: Base CV, resume, profile
 Source material uploaded by a Job Seeker and used to extract Candidate Profile facts.
 _Avoid_: CV, generated CV
 
+**Replacement Preview**:
+Extracted Candidate Profile facts from an Imported CV that wait for Job Seeker approval before replacing the existing Candidate Profile.
+_Avoid_: Draft profile, pending import
+
 **Application Package**:
 A vacancy-specific set of generated materials prepared from a Vacancy and Candidate Profile.
 _Avoid_: Application draft, tailored documents, submission
@@ -35,7 +39,9 @@ _Avoid_: Motivation letter
 ## Relationships
 
 - A **Job Seeker** owns one or more **Candidate Profiles**.
-- An **Imported CV** may be used to create or replace a **Candidate Profile**.
+- An **Imported CV** may be used to create a **Candidate Profile** when none exists.
+- An **Imported CV** produces a **Replacement Preview** when applying it would replace an existing **Candidate Profile**.
+- A **Replacement Preview** becomes the **Candidate Profile** only after Job Seeker approval.
 - A **Job Seeker** prepares one **Application Package** for a **Vacancy**.
 - An **Application Package** is derived from exactly one **Vacancy** and one **Candidate Profile**.
 - An **Application Package** contains a tailored **CV** and **Cover Letter**.
@@ -45,6 +51,9 @@ _Avoid_: Motivation letter
 
 > **Dev:** "When a **Job Seeker** adds a **Vacancy**, should we update their **Candidate Profile**?"
 > **Domain expert:** "No. The **Candidate Profile** stays reusable; the **Vacancy** is used to create a tailored **Application Package** with a **CV** and **Cover Letter**."
+>
+> **Dev:** "If a **Job Seeker** imports a new **Imported CV** after they already have a **Candidate Profile**, do we replace it immediately?"
+> **Domain expert:** "No. We create a **Replacement Preview** first, then replace the **Candidate Profile** only after approval."
 
 ## Flagged ambiguities
 
@@ -52,4 +61,5 @@ _Avoid_: Motivation letter
 - "User" is implementation language; use **Job Seeker** for the domain actor.
 - A generated **CV** is an output, not the canonical source of the Job Seeker's facts.
 - An **Imported CV** is input source material, not the generated **CV**.
+- A **Replacement Preview** is not yet the **Candidate Profile**; it is a proposed replacement.
 - **Application Package** does not imply employer submission; submission is outside current scope.

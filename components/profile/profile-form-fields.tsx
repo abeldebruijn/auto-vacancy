@@ -148,7 +148,11 @@ export function NumberField({
     <Field
       label={label}
       value={value?.toString() ?? ""}
-      onChange={(next) => onChange(next === "" ? null : Number(next))}
+      onChange={(next) => {
+        if (next === "") return onChange(null);
+        const parsed = Number(next);
+        if (Number.isFinite(parsed)) onChange(parsed);
+      }}
     />
   );
 }

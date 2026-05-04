@@ -4,6 +4,126 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { importedCvStatusValidator, pictureValidator, profileInputValidator } from "./profileModel";
 
+const candidateProfileOutputValidator = v.object({
+  _id: v.id("candidateProfiles"),
+  _creationTime: v.number(),
+  ownerToken: v.string(),
+  name: v.string(),
+  birthday: v.union(v.string(), v.null()),
+  portfolioLink: v.union(v.string(), v.null()),
+  email: v.union(v.string(), v.null()),
+  placeOfResidence: v.union(v.string(), v.null()),
+  phoneNumber: v.union(v.string(), v.null()),
+  linkedinLink: v.union(v.string(), v.null()),
+  otherSocialLinks: v.array(v.string()),
+  otherDetails: v.union(v.string(), v.null()),
+  characteristics: v.array(v.string()),
+  nextSteps: v.array(v.string()),
+  profilePicture: pictureValidator,
+  updatedAt: v.number(),
+});
+
+const experienceStoryOutputValidator = v.object({
+  _id: v.id("experienceStories"),
+  _creationTime: v.number(),
+  experienceId: v.id("experiences"),
+  profileId: v.id("candidateProfiles"),
+  ownerToken: v.string(),
+  projectName: v.union(v.string(), v.null()),
+  situation: v.union(v.string(), v.null()),
+  task: v.union(v.string(), v.null()),
+  action: v.union(v.string(), v.null()),
+  result: v.union(v.string(), v.null()),
+  sortOrder: v.number(),
+});
+
+const experienceOutputValidator = v.object({
+  _id: v.id("experiences"),
+  _creationTime: v.number(),
+  profileId: v.id("candidateProfiles"),
+  ownerToken: v.string(),
+  employer: v.string(),
+  contractType: v.union(v.literal("full-time"), v.literal("part-time"), v.null()),
+  isHobbyProject: v.boolean(),
+  fromYear: v.union(v.number(), v.null()),
+  toYear: v.union(v.number(), v.null()),
+  fromMonth: v.union(v.number(), v.null()),
+  toMonth: v.union(v.number(), v.null()),
+  isCurrent: v.boolean(),
+  sortOrder: v.number(),
+  stories: v.array(experienceStoryOutputValidator),
+});
+
+const skillOutputValidator = v.object({
+  _id: v.id("skills"),
+  _creationTime: v.number(),
+  profileId: v.id("candidateProfiles"),
+  ownerToken: v.string(),
+  kind: v.union(v.literal("soft"), v.literal("hard")),
+  name: v.string(),
+  proficiency: v.union(
+    v.literal("low"),
+    v.literal("medium"),
+    v.literal("high"),
+    v.literal("expert"),
+  ),
+  experienceIds: v.array(v.id("experiences")),
+  storyIds: v.array(v.id("experienceStories")),
+  sortOrder: v.number(),
+});
+
+const educationOutputValidator = v.object({
+  _id: v.id("educations"),
+  _creationTime: v.number(),
+  profileId: v.id("candidateProfiles"),
+  ownerToken: v.string(),
+  institute: v.string(),
+  fromYear: v.union(v.number(), v.null()),
+  toYear: v.union(v.number(), v.null()),
+  fromMonth: v.union(v.number(), v.null()),
+  toMonth: v.union(v.number(), v.null()),
+  isCurrent: v.boolean(),
+  major: v.union(v.string(), v.null()),
+  details: v.union(v.string(), v.null()),
+  sortOrder: v.number(),
+});
+
+const hobbyOutputValidator = v.object({
+  _id: v.id("hobbies"),
+  _creationTime: v.number(),
+  profileId: v.id("candidateProfiles"),
+  ownerToken: v.string(),
+  title: v.string(),
+  fromYear: v.union(v.number(), v.null()),
+  toYear: v.union(v.number(), v.null()),
+  isCurrent: v.boolean(),
+  details: v.union(v.string(), v.null()),
+  sortOrder: v.number(),
+});
+
+const profileDataOutputValidator = v.object({
+  profile: candidateProfileOutputValidator,
+  pictureUrl: v.union(v.string(), v.null()),
+  experiences: v.array(experienceOutputValidator),
+  skills: v.array(skillOutputValidator),
+  educations: v.array(educationOutputValidator),
+  hobbies: v.array(hobbyOutputValidator),
+});
+
+const importedCvOutputValidator = v.object({
+  _id: v.id("importedCvs"),
+  _creationTime: v.number(),
+  ownerToken: v.string(),
+  profileId: v.union(v.id("candidateProfiles"), v.null()),
+  filename: v.string(),
+  markdown: v.string(),
+  status: importedCvStatusValidator,
+  error: v.union(v.string(), v.null()),
+  extractedSnapshot: v.union(profileInputValidator, v.null()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
 async function requireOwnerToken(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
   if (identity === null) {
@@ -17,6 +137,41 @@ async function getOwnedProfile(ctx: QueryCtx | MutationCtx, ownerToken: string) 
     .query("candidateProfiles")
     .withIndex("by_ownerToken", (q) => q.eq("ownerToken", ownerToken))
     .unique();
+}
+
+function assertMonth(value: number | null, fieldName: string) {
+  if (value === null) return;
+  if (!Number.isInteger(value) || value < 1 || value > 12) {
+    throw new Error(`${fieldName} must be an integer from 1 to 12`);
+  }
+}
+
+function assertValidProfileMonths(input: typeof profileInputValidator.type) {
+  for (const [index, experience] of input.experiences.entries()) {
+    assertMonth(experience.fromMonth, `experiences[${index}].fromMonth`);
+    assertMonth(experience.toMonth, `experiences[${index}].toMonth`);
+  }
+  for (const [index, education] of input.educations.entries()) {
+    assertMonth(education.fromMonth, `educations[${index}].fromMonth`);
+    assertMonth(education.toMonth, `educations[${index}].toMonth`);
+  }
+}
+
+function assertValidProfileInput(
+  input: typeof profileInputValidator.type,
+  source: string,
+): asserts input is typeof profileInputValidator.type {
+  if (
+    typeof input !== "object" ||
+    input === null ||
+    !Array.isArray(input.experiences) ||
+    !Array.isArray(input.educations) ||
+    !Array.isArray(input.skills) ||
+    !Array.isArray(input.hobbies)
+  ) {
+    throw new Error(`Invalid Candidate Profile snapshot for ${source}`);
+  }
+  assertValidProfileMonths(input);
 }
 
 async function deleteProfileChildren(ctx: MutationCtx, profileId: Id<"candidateProfiles">) {
@@ -143,6 +298,7 @@ async function upsertProfileFromInput(
   ownerToken: string,
   input: typeof profileInputValidator.type,
 ) {
+  assertValidProfileInput(input, "write");
   const now = Date.now();
   const existing = await getOwnedProfile(ctx, ownerToken);
   const profileFields = {
@@ -175,7 +331,7 @@ async function upsertProfileFromInput(
 
 export const get = query({
   args: {},
-  returns: v.union(v.any(), v.null()),
+  returns: v.union(profileDataOutputValidator, v.null()),
   handler: async (ctx) => {
     const ownerToken = await requireOwnerToken(ctx);
     const profile = await getOwnedProfile(ctx, ownerToken);
@@ -229,7 +385,7 @@ export const get = query({
 
 export const listImportedCvs = query({
   args: {},
-  returns: v.array(v.any()),
+  returns: v.array(importedCvOutputValidator),
   handler: async (ctx) => {
     const ownerToken = await requireOwnerToken(ctx);
     return await ctx.db
@@ -350,11 +506,9 @@ export const applyImportedCvPreview = mutation({
     if (importedCv.status !== "preview" || importedCv.extractedSnapshot === null) {
       throw new Error("Imported CV is not ready to apply");
     }
-    const profileId = await upsertProfileFromInput(
-      ctx,
-      ownerToken,
-      importedCv.extractedSnapshot as typeof profileInputValidator.type,
-    );
+    const snapshot = importedCv.extractedSnapshot;
+    assertValidProfileInput(snapshot, `Imported CV ${importedCv._id}`);
+    const profileId = await upsertProfileFromInput(ctx, ownerToken, snapshot);
     await ctx.db.patch(importedCv._id, {
       profileId,
       status: "applied",

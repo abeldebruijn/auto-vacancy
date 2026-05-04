@@ -154,28 +154,39 @@ function ProfileWorkspace() {
   }
 
   async function handleSave() {
-    setStatus("Saving Candidate Profile...");
-    await saveProfile({ profile: normalizeForm(form) });
-    setStatus("Candidate Profile saved.");
+    try {
+      setStatus("Saving Candidate Profile...");
+      await saveProfile({ profile: normalizeForm(form) });
+      setStatus("Candidate Profile saved.");
+    } catch {
+      setStatus("Failed to save profile. Please try again.");
+    }
   }
 
   async function handlePictureUpload(file: File) {
     setStatus("Uploading profile picture...");
-    const url = await uploadUrl();
-    const response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": file.type },
-      body: file,
-    });
-    const { storageId } = (await response.json()) as {
-      storageId: Id<"_storage">;
-    };
-    await setPicture({ profilePicture: { kind: "storage", storageId } });
-    setForm((current) => ({
-      ...current,
-      profilePicture: { kind: "storage", storageId },
-    }));
-    setStatus("Profile picture saved.");
+    try {
+      const url = await uploadUrl();
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!response.ok) {
+        throw new Error(`Upload failed with status ${response.status}`);
+      }
+      const { storageId } = (await response.json()) as {
+        storageId: Id<"_storage">;
+      };
+      await setPicture({ profilePicture: { kind: "storage", storageId } });
+      setForm((current) => ({
+        ...current,
+        profilePicture: { kind: "storage", storageId },
+      }));
+      setStatus("Profile picture saved.");
+    } catch {
+      setStatus("Failed to upload picture. Please try again.");
+    }
   }
 
   if (profileData === undefined) {
@@ -257,9 +268,13 @@ function ProfileWorkspace() {
                     size="sm"
                     variant="outline"
                     onClick={async () => {
-                      setStatus("Applying replacement preview...");
-                      await applyPreview({ importedCvId: item._id });
-                      setStatus("Replacement applied.");
+                      try {
+                        setStatus("Applying replacement preview...");
+                        await applyPreview({ importedCvId: item._id });
+                        setStatus("Replacement applied.");
+                      } catch {
+                        setStatus("Failed to apply preview. Please try again.");
+                      }
                     }}
                   >
                     <Check className="size-3.5" />

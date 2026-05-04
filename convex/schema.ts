@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { profileInputValidator } from "./profileModel";
 
 export default defineSchema({
   candidateProfiles: defineTable({
@@ -35,7 +36,7 @@ export default defineSchema({
       v.literal("failed"),
     ),
     error: v.union(v.string(), v.null()),
-    extractedSnapshot: v.union(v.any(), v.null()),
+    extractedSnapshot: v.union(profileInputValidator, v.null()),
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_ownerToken", ["ownerToken"]),
