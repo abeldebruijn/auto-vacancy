@@ -140,18 +140,40 @@ function isPublicUrl(urlString: string): boolean {
   }
 }
 
-async function fetchText(url: string) {
+const MAX_FETCH_REDIRECTS = 5;
+
+async function fetchText(url: string, redirectCount = 0) {
+  if (redirectCount > MAX_FETCH_REDIRECTS) {
+    console.warn(`Blocked fetch after too many redirects: ${url}`);
+    return null;
+  }
+
   if (!isPublicUrl(url)) {
     console.warn(`Blocked fetch to non-public URL: ${url}`);
     return null;
   }
+
   try {
     const response = await fetch(url, {
       headers: {
         "user-agent": "Auto Vacancy research bot; summarizes public company pages for job seekers",
       },
       signal: AbortSignal.timeout(5000),
+      redirect: "manual",
     });
+    if (response.status >= 300 && response.status < 400) {
+      const location = response.headers.get("location");
+      if (!location) return null;
+
+      const redirectUrl = new URL(location, url).toString();
+      if (!isPublicUrl(redirectUrl)) {
+        console.warn(`Blocked redirect to non-public URL: ${redirectUrl}`);
+        return null;
+      }
+
+      return fetchText(redirectUrl, redirectCount + 1);
+    }
+
     if (!response.ok) return null;
     const contentType = response.headers.get("content-type") ?? "";
     if (!contentType.includes("text/html") && !contentType.includes("application/json")) {
