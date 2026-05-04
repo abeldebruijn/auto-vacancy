@@ -93,10 +93,6 @@ function HomeWorkspace() {
     <main className="mx-auto grid min-h-[calc(100vh-57px)] max-w-4xl place-items-center px-4 py-8">
       <Card className="w-full">
         <CardHeader>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Sparkles className="size-4" />
-            Welcome back
-          </div>
           <CardTitle className="text-2xl">Your Candidate Profile is ready</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm text-muted-foreground">
