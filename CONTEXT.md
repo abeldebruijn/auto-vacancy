@@ -36,9 +36,17 @@ _Avoid_: Draft profile, pending import
 A vacancy-specific set of generated materials prepared from a Vacancy and Candidate Profile.
 _Avoid_: Application draft, tailored documents, submission
 
+**CV Draft**:
+Editable structured CV content inside one Application Package before PDF generation.
+_Avoid_: JSON, generated CV, Candidate Profile
+
 **CV**:
 A generated document tailored to one Vacancy.
 _Avoid_: Resume
+
+**PDF Version**:
+An immutable generated CV file created from a CV Draft at a point in time.
+_Avoid_: Draft, latest CV
 
 **Cover Letter**:
 A generated letter tailored to one Vacancy.
@@ -54,6 +62,9 @@ _Avoid_: Motivation letter
 - A **Job Seeker** creates one **Vacancy Understanding** from one **Vacancy** before preparing an **Application Package**.
 - A **Job Seeker** prepares one **Application Package** for a **Vacancy**.
 - An **Application Package** is derived from exactly one **Vacancy** and one **Candidate Profile**.
+- An **Application Package** may contain one active **CV Draft**.
+- A **CV Draft** is a snapshot; later **Candidate Profile** changes do not rewrite it.
+- A **CV Draft** may produce one or more **PDF Versions**.
 - An **Application Package** contains a tailored **CV** and **Cover Letter**.
 - Auto Vacancy prepares application materials; employer submission happens outside the system.
 
@@ -70,6 +81,8 @@ _Avoid_: Motivation letter
 - "Vacancy" means an open job opportunity, not a rental or occupancy slot.
 - "User" is implementation language; use **Job Seeker** for the domain actor.
 - A generated **CV** is an output, not the canonical source of the Job Seeker's facts.
+- A **CV Draft** is editable generated content, not raw JSON exposed to the Job Seeker.
+- A **PDF Version** is immutable; edits happen by changing the **CV Draft** and generating another version.
 - An **Imported CV** is input source material, not the generated **CV**.
 - A **Replacement Preview** is not yet the **Candidate Profile**; it is a proposed replacement.
 - A **Vacancy Understanding** is not yet an **Application Package**; it captures research and clarifications before generated materials exist.

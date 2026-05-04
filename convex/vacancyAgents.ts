@@ -5,9 +5,8 @@ import { z } from "zod";
 import { v } from "convex/values";
 import { action, internalAction } from "./_generated/server";
 import type { ActionCtx } from "./_generated/server";
-import { api } from "./_generated/api";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 
 const requiredSkillSchema = z.object({
   kind: z.enum(["soft", "hard"]),
@@ -40,8 +39,21 @@ const researchSummarySchema = z.object({
   confidence: z.number().min(0).max(1),
 });
 
-type CandidateProfileData = typeof api.profile.get._returnType;
-type VacancyDetail = typeof api.vacancy.get._returnType;
+type CandidateProfileData = {
+  profile: Doc<"candidateProfiles">;
+  pictureUrl: string | null;
+  experiences: (Doc<"experiences"> & { stories: Doc<"experienceStories">[] })[];
+  skills: Doc<"skills">[];
+  educations: Doc<"educations">[];
+  hobbies: Doc<"hobbies">[];
+} | null;
+
+type VacancyDetail = {
+  vacancy: Doc<"vacancyUnderstandings">;
+  researchSummaries: Doc<"vacancyResearchSummaries">[];
+  requiredSkills: Doc<"vacancyRequiredSkills">[];
+  questions: Doc<"vacancyQuestions">[];
+} | null;
 
 async function requireOwnerToken(ctx: ActionCtx) {
   const identity = await ctx.auth.getUserIdentity();
