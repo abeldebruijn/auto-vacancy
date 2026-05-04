@@ -5,9 +5,7 @@ import { HomeApp } from "@/components/profile/home-app";
 
 const mocks = vi.hoisted(() => ({
   importMarkdown: vi.fn(),
-  analyzeVacancy: vi.fn(),
   createVacancy: vi.fn(),
-  actionCallCount: 0,
   queryCallCount: 0,
   push: vi.fn(),
   profileQueryResult: null as unknown,
@@ -17,10 +15,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("convex/react", () => ({
   Authenticated: ({ children }: { children: ReactNode }) => children,
   Unauthenticated: () => null,
-  useAction: () => {
-    mocks.actionCallCount += 1;
-    return mocks.actionCallCount % 2 === 0 ? mocks.analyzeVacancy : mocks.importMarkdown;
-  },
+  useAction: () => mocks.importMarkdown,
   useMutation: () => mocks.createVacancy,
   useQuery: () => {
     mocks.queryCallCount += 1;
@@ -43,9 +38,7 @@ vi.mock("@clerk/nextjs", () => ({
 describe("HomeApp", () => {
   beforeEach(() => {
     mocks.importMarkdown.mockReset();
-    mocks.analyzeVacancy.mockReset();
     mocks.createVacancy.mockReset();
-    mocks.actionCallCount = 0;
     mocks.queryCallCount = 0;
     mocks.push.mockReset();
     mocks.profileQueryResult = null;

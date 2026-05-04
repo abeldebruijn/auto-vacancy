@@ -137,7 +137,7 @@ function HomeWorkspace() {
                 id="vacancy-text"
                 value={vacancyText}
                 onChange={(event) => setVacancyText(event.target.value)}
-                className="min-h-64 resize-y"
+                className="max-h-[28rem] min-h-64 resize-y overflow-y-auto"
                 placeholder="Paste the full Vacancy text here..."
               />
             </div>
@@ -177,29 +177,41 @@ function VacancyTable({
         {vacancies.length === 0 ? (
           <p className="text-sm text-muted-foreground">No Vacancy Understandings yet.</p>
         ) : (
-          <Table>
+          <Table className="table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead>Vacancy</TableHead>
-                <TableHead>Company</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                <TableHead className="w-[38%] md:w-[39%]">Vacancy</TableHead>
+                <TableHead className="w-[18%] md:w-[14%]">Company</TableHead>
+                <TableHead className="w-[30%] md:w-[25%]">Status</TableHead>
+                <TableHead className="hidden w-[13%] md:table-cell">Created</TableHead>
+                <TableHead className="w-[14%] text-right md:w-[9%]">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {vacancies.map((vacancy) => (
                 <TableRow key={vacancy._id}>
                   <TableCell className="font-medium">
-                    {vacancy.title ?? "Untitled Vacancy"}
+                    <span className="block truncate" title={vacancy.title ?? "Untitled Vacancy"}>
+                      {vacancy.title ?? "Untitled Vacancy"}
+                    </span>
                   </TableCell>
-                  <TableCell>{vacancy.companyName ?? "Unknown"}</TableCell>
                   <TableCell>
-                    <Badge variant={vacancy.status === "ready" ? "default" : "secondary"}>
+                    <span className="block truncate" title={vacancy.companyName ?? "Unknown"}>
+                      {vacancy.companyName ?? "Unknown"}
+                    </span>
+                  </TableCell>
+                  <TableCell className="overflow-hidden">
+                    <Badge
+                      className="max-w-full truncate"
+                      title={statusLabel(vacancy.status)}
+                      variant={vacancy.status === "ready" ? "default" : "secondary"}
+                    >
                       {statusLabel(vacancy.status)}
                     </Badge>
                   </TableCell>
-                  <TableCell>{new Date(vacancy.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    {new Date(vacancy.createdAt).toLocaleDateString()}
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button
                       type="button"

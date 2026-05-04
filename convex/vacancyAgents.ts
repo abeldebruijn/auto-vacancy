@@ -138,17 +138,13 @@ async function fetchText(url: string) {
   try {
     const response = await fetch(url, {
       headers: {
-        "user-agent":
-          "Auto Vacancy research bot; summarizes public company pages for job seekers",
+        "user-agent": "Auto Vacancy research bot; summarizes public company pages for job seekers",
       },
       signal: AbortSignal.timeout(5000),
     });
     if (!response.ok) return null;
     const contentType = response.headers.get("content-type") ?? "";
-    if (
-      !contentType.includes("text/html") &&
-      !contentType.includes("application/json")
-    ) {
+    if (!contentType.includes("text/html") && !contentType.includes("application/json")) {
       return null;
     }
     return stripHtml(await response.text());
@@ -169,12 +165,7 @@ async function fetchWikipedia(companyName: string) {
       signal: AbortSignal.timeout(5000),
     });
     if (!searchResponse.ok) return null;
-    const data = (await searchResponse.json()) as [
-      string,
-      string[],
-      string[],
-      string[],
-    ];
+    const data = (await searchResponse.json()) as [string, string[], string[], string[]];
     const title = data[1]?.[0];
     const url = data[3]?.[0];
     if (!title || !url) return null;
@@ -212,8 +203,7 @@ async function summarizeSource(args: {
       output: Output.object({
         schema: researchSummarySchema,
         name: "company_research_summary",
-        description:
-          "Two to three paragraph summary of one company information source.",
+        description: "Two to three paragraph summary of one company information source.",
       }),
       system:
         "Summarize the source for a Job Seeker tailoring a CV and Cover Letter. Focus on mission and positioning, what the company does or makes, clients or audience, and why the Vacancy may matter. Write two to three concise paragraphs. Do not invent unsupported facts.",
@@ -281,13 +271,8 @@ function matchSkills(
     );
     return {
       ...skill,
-      matchStatus:
-        matchedCandidateSkills.length > 0
-          ? ("matched" as const)
-          : ("missing" as const),
-      matchedCandidateSkillIds: matchedCandidateSkills.map(
-        (candidateSkill) => candidateSkill._id,
-      ),
+      matchStatus: matchedCandidateSkills.length > 0 ? ("matched" as const) : ("missing" as const),
+      matchedCandidateSkillIds: matchedCandidateSkills.map((candidateSkill) => candidateSkill._id),
     };
   });
 }
@@ -306,10 +291,7 @@ function missingSkillQuestions(
     }));
 }
 
-async function buildResearchSummaries(
-  companyName: string,
-  homepageUrl: string | null,
-) {
+async function buildResearchSummaries(companyName: string, homepageUrl: string | null) {
   const sources: Array<{
     sourceType: "homepage" | "about" | "team" | "wikipedia" | "fallback";
     sourceTitle: string;
@@ -364,9 +346,7 @@ async function buildResearchSummaries(
   }
 
   const uniqueSources = sources.filter(
-    (source, index) =>
-      sources.findIndex((item) => item.sourceUrl === source.sourceUrl) ===
-      index,
+    (source, index) => sources.findIndex((item) => item.sourceUrl === source.sourceUrl) === index,
   );
   const summaryResults = await Promise.allSettled(
     uniqueSources.map((source) =>
@@ -380,15 +360,9 @@ async function buildResearchSummaries(
     .filter((result) => result.status === "fulfilled")
     .map(
       (result) =>
-        (
-          result as PromiseFulfilledResult<
-            Awaited<ReturnType<typeof summarizeSource>>
-          >
-        ).value,
+        (result as PromiseFulfilledResult<Awaited<ReturnType<typeof summarizeSource>>>).value,
     )
-    .filter(
-      (summary): summary is NonNullable<typeof summary> => summary !== null,
-    );
+    .filter((summary): summary is NonNullable<typeof summary> => summary !== null);
   return summaries;
 }
 
@@ -397,23 +371,12 @@ function companyNeedsHomepage(analysis: z.infer<typeof vacancyAnalysisSchema>) {
 }
 
 function detectLanguage(text: string) {
-  const dutchHits = [
-    " en ",
-    " de ",
-    " het ",
-    " wij ",
-    " jij ",
-    " functie ",
-    " ervaring ",
-  ].filter((word) => text.toLowerCase().includes(word)).length;
-  const englishHits = [
-    " and ",
-    " the ",
-    " we ",
-    " you ",
-    " role ",
-    " experience ",
-  ].filter((word) => text.toLowerCase().includes(word)).length;
+  const dutchHits = [" en ", " de ", " het ", " wij ", " jij ", " functie ", " ervaring "].filter(
+    (word) => text.toLowerCase().includes(word),
+  ).length;
+  const englishHits = [" and ", " the ", " we ", " you ", " role ", " experience "].filter((word) =>
+    text.toLowerCase().includes(word),
+  ).length;
   if (dutchHits > englishHits) return "Dutch";
   if (englishHits > 0) return "English";
   return null;
@@ -448,9 +411,7 @@ function timeoutFallback(args: {
     language,
     languageConfidence: language === null ? 0 : 0.55,
     coverLetterAddressee: null,
-    status: needsHomepage
-      ? ("needs_homepage" as const)
-      : ("asking_questions" as const),
+    status: needsHomepage ? ("needs_homepage" as const) : ("asking_questions" as const),
     error: `AI analysis timed out. Continue manually; the system can retry after the homepage is provided. ${args.errorMessage}`,
     researchSummaries: [],
     requiredSkills: [],
@@ -458,19 +419,15 @@ function timeoutFallback(args: {
       ? []
       : [
           {
-            prompt:
-              "What company is this Vacancy for, and who should the Cover Letter address?",
+            prompt: "What company is this Vacancy for, and who should the Cover Letter address?",
             shortPrompt: "Company and addressee",
-            reason:
-              "AI analysis timed out before company details were extracted.",
+            reason: "AI analysis timed out before company details were extracted.",
             required: true,
           },
           {
-            prompt:
-              "What Vacancy title should Auto Vacancy use for the CV and Cover Letter?",
+            prompt: "What Vacancy title should Auto Vacancy use for the CV and Cover Letter?",
             shortPrompt: "Vacancy title",
-            reason:
-              "AI analysis timed out before the title was confidently extracted.",
+            reason: "AI analysis timed out before the title was confidently extracted.",
             required: true,
           },
         ],
@@ -484,10 +441,7 @@ export const analyze = action({
     const detail: VacancyDetail = await ctx.runQuery(api.vacancy.get, {
       vacancyUnderstandingId: args.vacancyUnderstandingId,
     });
-    const profileData: CandidateProfileData = await ctx.runQuery(
-      api.profile.get,
-      {},
-    );
+    const profileData: CandidateProfileData = await ctx.runQuery(api.profile.get, {});
     if (detail === null || profileData === null) {
       throw new Error("Vacancy Understanding not found");
     }
@@ -504,8 +458,7 @@ export const analyze = action({
         output: Output.object({
           schema: vacancyAnalysisSchema,
           name: "vacancy_understanding",
-          description:
-            "Structured Vacancy facts, requirements, and relevant Job Seeker questions.",
+          description: "Structured Vacancy facts, requirements, and relevant Job Seeker questions.",
         }),
         system:
           "Analyze a Vacancy for a Job Seeker preparing a tailored CV and Cover Letter. Extract only supported company, title, language, addressee, hard skills, soft skills, and relevant clarification questions. Assume output language is the Vacancy language. Ask about hobbies only if they could be relevant. Ask about title or language only when ambiguous. Do not ask broad generic questions.",
@@ -513,15 +466,10 @@ export const analyze = action({
       });
 
       const homepageUrl =
-        normalizeUrl(detail.vacancy.companyHomepageUrl) ??
-        normalizeUrl(output.companyHomepageUrl);
-      const needsHomepage =
-        companyNeedsHomepage(output) && homepageUrl === null;
+        normalizeUrl(detail.vacancy.companyHomepageUrl) ?? normalizeUrl(output.companyHomepageUrl);
+      const needsHomepage = companyNeedsHomepage(output) && homepageUrl === null;
       const matchedSkills = matchSkills(output.requiredSkills, profileData);
-      const questions = [
-        ...output.questions,
-        ...missingSkillQuestions(matchedSkills),
-      ].slice(0, 24);
+      const questions = [...output.questions, ...missingSkillQuestions(matchedSkills)].slice(0, 24);
       const companyName = output.companyName;
       const researchSummaries =
         companyName !== null && !needsHomepage
@@ -549,8 +497,7 @@ export const analyze = action({
       });
       return null;
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Vacancy analysis failed";
+      const message = error instanceof Error ? error.message : "Vacancy analysis failed";
       const readableError = message.includes("Configure AI_GATEWAY_API_KEY")
         ? "AI Gateway is not configured for Convex. Set AI_GATEWAY_API_KEY in Convex environment variables and try again."
         : message;

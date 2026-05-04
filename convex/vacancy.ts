@@ -83,6 +83,21 @@ const vacancyDetailOutputValidator = v.object({
   questions: v.array(vacancyQuestionOutputValidator),
 });
 
+function normalizeHomepageUrl(homepageUrl: string) {
+  const trimmed = homepageUrl.trim();
+  if (trimmed === "") return null;
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const url = new URL(candidate);
+    if ((url.protocol !== "http:" && url.protocol !== "https:") || !url.hostname.includes(".")) {
+      return null;
+    }
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 async function requireOwnerToken(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
   if (identity === null) {
@@ -240,9 +255,9 @@ export const provideHomepage = mutation({
   handler: async (ctx, args) => {
     const ownerToken = await requireOwnerToken(ctx);
     const vacancy = await getOwnedVacancy(ctx, args.vacancyUnderstandingId, ownerToken);
-    const homepageUrl = args.homepageUrl.trim();
-    if (!/^https?:\/\/.+\..+/.test(homepageUrl)) {
-      throw new Error("Provide a full company homepage URL");
+    const homepageUrl = normalizeHomepageUrl(args.homepageUrl);
+    if (homepageUrl === null) {
+      throw new Error("Provide a company homepage URL");
     }
     await ctx.db.patch(vacancy._id, {
       companyHomepageUrl: homepageUrl,
