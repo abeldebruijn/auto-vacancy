@@ -5,6 +5,7 @@ import { z } from "zod";
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { api } from "./_generated/api";
+import { internal } from "./_generated/api";
 
 const requiredSkillSchema = z.object({
   kind: z.enum(["soft", "hard"]),
@@ -70,12 +71,76 @@ function stripHtml(html: string) {
     .slice(0, 12000);
 }
 
+function isPrivateIpAddress(hostname: string): boolean {
+  // Check IPv4 private ranges
+  const ipv4Patterns = [
+    /^127\./,                       // Loopback
+    /^10\./,                        // RFC1918 private
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./, // RFC1918 private
+    /^192\.168\./,                  // RFC1918 private
+    /^169\.254\./,                  // Link-local
+    /^224\./,                       // Multicast
+    /^255\./,                       // Broadcast
+  ];
+
+  // Check IPv6 private ranges
+  const ipv6Patterns = [
+    /^::1$/,                        // Loopback
+    /^fe80:/i,                      // Link-local
+    /^fc00:/i,                      // Unique local
+    /^fd00:/i,                      // Unique local
+    /^ff00:/i,                      // Multicast
+  ];
+
+  const lowerHostname = hostname.toLowerCase();
+
+  for (const pattern of ipv4Patterns) {
+    if (pattern.test(hostname)) return true;
+  }
+
+  for (const pattern of ipv6Patterns) {
+    if (pattern.test(lowerHostname)) return true;
+  }
+
+  // Check localhost variations
+  if (["localhost", "localhost.localdomain"].includes(lowerHostname)) {
+    return true;
+  }
+
+  return false;
+}
+
+function isPublicUrl(urlString: string): boolean {
+  try {
+    const url = new URL(urlString);
+
+    // Only allow http and https schemes
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return false;
+    }
+
+    // Check if hostname is a private IP or localhost
+    if (isPrivateIpAddress(url.hostname)) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function fetchText(url: string) {
+  if (!isPublicUrl(url)) {
+    console.warn(`Blocked fetch to non-public URL: ${url}`);
+    return null;
+  }
   try {
     const response = await fetch(url, {
       headers: {
         "user-agent": "Auto Vacancy research bot; summarizes public company pages for job seekers",
       },
+      signal: AbortSignal.timeout(5000),
     });
     if (!response.ok) return null;
     const contentType = response.headers.get("content-type") ?? "";
@@ -96,7 +161,9 @@ async function fetchWikipedia(companyName: string) {
     searchUrl.searchParams.set("limit", "1");
     searchUrl.searchParams.set("namespace", "0");
     searchUrl.searchParams.set("format", "json");
-    const searchResponse = await fetch(searchUrl);
+    const searchResponse = await fetch(searchUrl, {
+      signal: AbortSignal.timeout(5000),
+    });
     if (!searchResponse.ok) return null;
     const data = (await searchResponse.json()) as [string, string[], string[], string[]];
     const title = data[1]?.[0];
@@ -104,6 +171,9 @@ async function fetchWikipedia(companyName: string) {
     if (!title || !url) return null;
     const summaryResponse = await fetch(
       `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`,
+      {
+        signal: AbortSignal.timeout(5000),
+      },
     );
     if (!summaryResponse.ok) return null;
     const summary = (await summaryResponse.json()) as { extract?: string };
@@ -125,35 +195,65 @@ async function summarizeSource(args: {
   text: string;
 }) {
   if (args.text.trim().length < 120) return null;
-  const { output } = await generateText({
-    model: modelId(),
-    output: Output.object({
-      schema: researchSummarySchema,
-      name: "company_research_summary",
-      description: "Two to three paragraph summary of one company information source.",
-    }),
-    system:
-      "Summarize the source for a Job Seeker tailoring a CV and Cover Letter. Focus on mission and positioning, what the company does or makes, clients or audience, and why the Vacancy may matter. Write two to three concise paragraphs. Do not invent unsupported facts.",
-    prompt: `Company: ${args.companyName}\nSource type: ${args.sourceType}\nSource URL: ${args.sourceUrl}\n\nSource text:\n${args.text}`,
-  });
-  return {
-    sourceType: args.sourceType,
-    sourceTitle: args.sourceTitle,
-    sourceUrl: args.sourceUrl,
-    summary: output.summary,
-    confidence: output.confidence,
-  };
+  try {
+    const { output } = await generateText({
+      model: modelId(),
+      output: Output.object({
+        schema: researchSummarySchema,
+        name: "company_research_summary",
+        description: "Two to three paragraph summary of one company information source.",
+      }),
+      system:
+        "Summarize the source for a Job Seeker tailoring a CV and Cover Letter. Focus on mission and positioning, what the company does or makes, clients or audience, and why the Vacancy may matter. Write two to three concise paragraphs. Do not invent unsupported facts.",
+      prompt: `Company: ${args.companyName}\nSource type: ${args.sourceType}\nSource URL: ${args.sourceUrl}\n\nSource text:\n${args.text}`,
+    });
+    return {
+      sourceType: args.sourceType,
+      sourceTitle: args.sourceTitle,
+      sourceUrl: args.sourceUrl,
+      summary: output.summary,
+      confidence: output.confidence,
+    };
+  } catch (error) {
+    console.warn(
+      `Failed to summarize source ${args.sourceType} (${args.sourceUrl}):`,
+      error instanceof Error ? error.message : String(error),
+    );
+    return null;
+  }
 }
 
 function normalizeSkillName(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9+#.]+/g, " ").trim();
 }
 
+const skillAliases = new Map<string, Set<string>>([
+  ["c", new Set(["c"])],
+  ["c++", new Set(["c++", "cpp"])],
+  ["c#", new Set(["c#", "csharp"])],
+  ["javascript", new Set(["javascript", "js"])],
+  ["typescript", new Set(["typescript", "ts"])],
+  ["python", new Set(["python", "py"])],
+  ["sql", new Set(["sql"])],
+  ["nosql", new Set(["nosql"])],
+]);
+
+function getCanonicalSkill(normalizedSkill: string): string {
+  for (const [canonical, aliases] of skillAliases) {
+    if (aliases.has(normalizedSkill)) {
+      return canonical;
+    }
+  }
+  return normalizedSkill;
+}
+
 function skillMatches(required: string, candidate: string) {
   const left = normalizeSkillName(required);
   const right = normalizeSkillName(candidate);
   if (!left || !right) return false;
-  return left === right || left.includes(right) || right.includes(left);
+  const canonicalLeft = getCanonicalSkill(left);
+  const canonicalRight = getCanonicalSkill(right);
+  return canonicalLeft === canonicalRight;
 }
 
 function matchSkills(
@@ -195,7 +295,7 @@ async function buildResearchSummaries(companyName: string, homepageUrl: string |
     text: string;
   }> = [];
 
-  if (homepageUrl !== null) {
+  if (homepageUrl !== null && isPublicUrl(homepageUrl)) {
     const pages = [
       { sourceType: "homepage" as const, sourceTitle: "Company homepage", url: homepageUrl },
       { sourceType: "about" as const, sourceTitle: "Company about page", url: pageUrl(homepageUrl, "/about") },
@@ -232,7 +332,7 @@ async function buildResearchSummaries(companyName: string, homepageUrl: string |
   const uniqueSources = sources.filter(
     (source, index) => sources.findIndex((item) => item.sourceUrl === source.sourceUrl) === index,
   );
-  const summaries = await Promise.all(
+  const summaryResults = await Promise.allSettled(
     uniqueSources.map((source) =>
       summarizeSource({
         ...source,
@@ -240,7 +340,11 @@ async function buildResearchSummaries(companyName: string, homepageUrl: string |
       }),
     ),
   );
-  return summaries.filter((summary): summary is NonNullable<typeof summary> => summary !== null);
+  const summaries = summaryResults
+    .filter((result) => result.status === "fulfilled")
+    .map((result) => (result as PromiseFulfilledResult<Awaited<ReturnType<typeof summarizeSource>>>).value)
+    .filter((summary): summary is NonNullable<typeof summary> => summary !== null);
+  return summaries;
 }
 
 function companyNeedsHomepage(analysis: z.infer<typeof vacancyAnalysisSchema>) {
@@ -286,7 +390,7 @@ export const analyze = action({
         companyName !== null && !needsHomepage
           ? await buildResearchSummaries(companyName, homepageUrl)
           : [];
-      await ctx.runMutation(api.vacancy.finishAnalysis, {
+      await ctx.runMutation(internal.vacancy.finishAnalysis, {
         vacancyUnderstandingId: args.vacancyUnderstandingId,
         companyName,
         companyHomepageUrl: homepageUrl,
@@ -312,7 +416,7 @@ export const analyze = action({
       const readableError = message.includes("Configure AI_GATEWAY_API_KEY")
         ? "AI Gateway is not configured for Convex. Set AI_GATEWAY_API_KEY in Convex environment variables and try again."
         : message;
-      await ctx.runMutation(api.vacancy.finishAnalysis, {
+      await ctx.runMutation(internal.vacancy.finishAnalysis, {
         vacancyUnderstandingId: args.vacancyUnderstandingId,
         companyName: detail.vacancy.companyName,
         companyHomepageUrl: detail.vacancy.companyHomepageUrl,

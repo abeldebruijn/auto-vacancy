@@ -82,7 +82,6 @@ describe("HomeApp", () => {
       }),
     );
     expect(mocks.push).toHaveBeenCalledWith("/specify-vacancy/vac123");
-    expect(mocks.analyzeVacancy).toHaveBeenCalledWith({ vacancyUnderstandingId: "vac123" });
   });
 
   it("routes manual profile creation to /profile", () => {

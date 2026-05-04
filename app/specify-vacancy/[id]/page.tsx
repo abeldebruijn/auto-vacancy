@@ -7,5 +7,9 @@ export default async function SpecifyVacancyPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <SpecifyVacancyApp vacancyUnderstandingId={id as Id<"vacancyUnderstandings">} />;
+  return (
+    <SpecifyVacancyApp
+      vacancyUnderstandingId={id as Id<"vacancyUnderstandings">}
+    />
+  );
 }
