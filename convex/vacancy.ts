@@ -321,7 +321,7 @@ export const understandsVacancy = mutation({
       status: "ready",
       updatedAt: Date.now(),
     });
-    return `/vacancies/${vacancy.slug}-${vacancy._id}`;
+    return `/vacancies/${vacancy._id}`;
   },
 });
 

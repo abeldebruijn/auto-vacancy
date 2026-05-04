@@ -137,6 +137,16 @@ function SpecifyVacancyWorkspace({
   return (
     <main className="mx-auto grid max-w-6xl gap-6 px-4 py-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <section className="space-y-6">
+        <AnswersCard
+          answeredQuestions={answeredQuestions}
+          onAnswerSelect={(question) =>
+            setAnswerDrafts((drafts) => ({
+              ...drafts,
+              [question._id]: question.answer ?? "",
+            }))
+          }
+        />
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm text-muted-foreground">Vacancy Understanding</p>
@@ -243,42 +253,6 @@ function SpecifyVacancyWorkspace({
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Answers</CardTitle>
-          </CardHeader>
-          <CardContent className="min-h-48 space-y-3 overflow-hidden">
-            {answeredQuestions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Answers will collect here.</p>
-            ) : (
-              <div className="relative min-h-64">
-                {answeredQuestions.map((question, index) => (
-                  <button
-                    key={question._id}
-                    className="absolute max-w-[240px] rounded-md border bg-white p-3 text-left text-xs shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                    style={{
-                      left: `${(index % 2) * 42}%`,
-                      top: `${Math.floor(index / 2) * 84}px`,
-                    }}
-                    type="button"
-                    onClick={() =>
-                      setAnswerDrafts((drafts) => ({
-                        ...drafts,
-                        [question._id]: question.answer ?? "",
-                      }))
-                    }
-                  >
-                    <span className="font-medium">{question.shortPrompt}</span>
-                    <span className="mt-1 line-clamp-3 block text-muted-foreground">
-                      {question.answer}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         {detail.vacancy.status === "ready" ? (
           <Button
             className="w-full"
@@ -289,6 +263,51 @@ function SpecifyVacancyWorkspace({
         ) : null}
       </aside>
     </main>
+  );
+}
+
+function AnswersCard({
+  answeredQuestions,
+  onAnswerSelect,
+}: {
+  answeredQuestions: Array<{
+    _id: Id<"vacancyQuestions">;
+    shortPrompt: string;
+    answer: string | null;
+  }>;
+  onAnswerSelect: (question: {
+    _id: Id<"vacancyQuestions">;
+    shortPrompt: string;
+    answer: string | null;
+  }) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Answers</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {answeredQuestions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Answers will collect here.</p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {answeredQuestions.map((question) => (
+              <button
+                key={question._id}
+                className="min-h-24 rounded-md border bg-white p-3 text-left text-xs shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                type="button"
+                onClick={() => onAnswerSelect(question)}
+              >
+                <span className="font-medium">{question.shortPrompt}</span>
+                <span className="mt-1 line-clamp-3 block text-muted-foreground">
+                  {question.answer}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
