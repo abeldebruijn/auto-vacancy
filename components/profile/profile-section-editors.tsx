@@ -39,6 +39,43 @@ export function ExperienceEditor({
           <Trash2 />
         </IconButton>
       </div>
+      <ExperienceFormBody experience={experience} onChange={onChange} />
+      <SectionList
+        items={experience.stories}
+        addLabel="Add story"
+        onAdd={() =>
+          onChange({
+            ...experience,
+            stories: [...experience.stories, newStory()],
+          })
+        }
+        render={(story, index) => (
+          <StoryEditor
+            story={story}
+            onChange={(next) =>
+              replaceAt(experience.stories, index, next, (stories) =>
+                onChange({ ...experience, stories }),
+              )
+            }
+            onRemove={() =>
+              removeAt(experience.stories, index, (stories) => onChange({ ...experience, stories }))
+            }
+          />
+        )}
+      />
+    </div>
+  );
+}
+
+export function ExperienceFormBody({
+  experience,
+  onChange,
+}: {
+  experience: ExperienceForm;
+  onChange: (experience: ExperienceForm) => void;
+}) {
+  return (
+    <>
       <div className="grid gap-3 md:grid-cols-2">
         <Field
           label="Employer"
@@ -91,30 +128,7 @@ export function ExperienceEditor({
           ],
         ]}
       />
-      <SectionList
-        items={experience.stories}
-        addLabel="Add story"
-        onAdd={() =>
-          onChange({
-            ...experience,
-            stories: [...experience.stories, newStory()],
-          })
-        }
-        render={(story, index) => (
-          <StoryEditor
-            story={story}
-            onChange={(next) =>
-              replaceAt(experience.stories, index, next, (stories) =>
-                onChange({ ...experience, stories }),
-              )
-            }
-            onRemove={() =>
-              removeAt(experience.stories, index, (stories) => onChange({ ...experience, stories }))
-            }
-          />
-        )}
-      />
-    </div>
+    </>
   );
 }
 
@@ -134,6 +148,20 @@ function StoryEditor({
           <Trash2 />
         </IconButton>
       </div>
+      <StoryFormBody story={story} onChange={onChange} />
+    </div>
+  );
+}
+
+export function StoryFormBody({
+  story,
+  onChange,
+}: {
+  story: StoryForm;
+  onChange: (story: StoryForm) => void;
+}) {
+  return (
+    <>
       <Field
         label="Project name"
         value={story.projectName ?? ""}
@@ -161,7 +189,7 @@ function StoryEditor({
           onChange={(result) => onChange({ ...story, result })}
         />
       </div>
-    </div>
+    </>
   );
 }
 
@@ -183,6 +211,22 @@ export function SkillEditor({
           <Trash2 />
         </IconButton>
       </div>
+      <SkillFormBody skill={skill} evidenceOptions={evidenceOptions} onChange={onChange} />
+    </div>
+  );
+}
+
+export function SkillFormBody({
+  skill,
+  evidenceOptions,
+  onChange,
+}: {
+  skill: SkillForm;
+  evidenceOptions: EvidenceOptions;
+  onChange: (skill: SkillForm) => void;
+}) {
+  return (
+    <>
       <div className="grid gap-3 md:grid-cols-3">
         <FormSelect
           label="Kind"
@@ -215,7 +259,7 @@ export function SkillEditor({
         options={evidenceOptions.stories}
         onChange={(storyIds) => onChange({ ...skill, storyIds })}
       />
-    </div>
+    </>
   );
 }
 
@@ -235,6 +279,20 @@ export function EducationEditor({
           <Trash2 />
         </IconButton>
       </div>
+      <EducationFormBody education={education} onChange={onChange} />
+    </div>
+  );
+}
+
+export function EducationFormBody({
+  education,
+  onChange,
+}: {
+  education: EducationForm;
+  onChange: (education: EducationForm) => void;
+}) {
+  return (
+    <>
       <div className="grid gap-3 md:grid-cols-2">
         <Field
           label="Institute"
@@ -277,7 +335,7 @@ export function EducationEditor({
         value={education.details ?? ""}
         onChange={(details) => onChange({ ...education, details })}
       />
-    </div>
+    </>
   );
 }
 
@@ -297,6 +355,20 @@ export function HobbyEditor({
           <Trash2 />
         </IconButton>
       </div>
+      <HobbyFormBody hobby={hobby} onChange={onChange} />
+    </div>
+  );
+}
+
+export function HobbyFormBody({
+  hobby,
+  onChange,
+}: {
+  hobby: HobbyForm;
+  onChange: (hobby: HobbyForm) => void;
+}) {
+  return (
+    <>
       <div className="grid gap-3 md:grid-cols-3">
         <Field
           label="Title"
@@ -322,6 +394,6 @@ export function HobbyEditor({
         value={hobby.details ?? ""}
         onChange={(details) => onChange({ ...hobby, details })}
       />
-    </div>
+    </>
   );
 }
