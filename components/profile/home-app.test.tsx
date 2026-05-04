@@ -5,15 +5,22 @@ import { HomeApp } from "@/components/profile/home-app";
 
 const mocks = vi.hoisted(() => ({
   importMarkdown: vi.fn(),
+  createVacancy: vi.fn(),
+  queryCallCount: 0,
   push: vi.fn(),
-  queryResult: null as unknown,
+  profileQueryResult: null as unknown,
+  vacanciesQueryResult: [] as unknown,
 }));
 
 vi.mock("convex/react", () => ({
   Authenticated: ({ children }: { children: ReactNode }) => children,
   Unauthenticated: () => null,
   useAction: () => mocks.importMarkdown,
-  useQuery: () => mocks.queryResult,
+  useMutation: () => mocks.createVacancy,
+  useQuery: () => {
+    mocks.queryCallCount += 1;
+    return mocks.queryCallCount % 2 === 1 ? mocks.profileQueryResult : mocks.vacanciesQueryResult;
+  },
 }));
 
 vi.mock("next/navigation", () => ({
@@ -31,8 +38,11 @@ vi.mock("@clerk/nextjs", () => ({
 describe("HomeApp", () => {
   beforeEach(() => {
     mocks.importMarkdown.mockReset();
+    mocks.createVacancy.mockReset();
+    mocks.queryCallCount = 0;
     mocks.push.mockReset();
-    mocks.queryResult = null;
+    mocks.profileQueryResult = null;
+    mocks.vacanciesQueryResult = [];
   });
 
   it("shows the start profile screen when there is no Candidate Profile", () => {
@@ -42,13 +52,69 @@ describe("HomeApp", () => {
     expect(screen.getByRole("button", { name: /enter manually/i })).toBeInTheDocument();
   });
 
-  it("shows a welcome message when a Candidate Profile exists", () => {
-    mocks.queryResult = { profile: { name: "Abel" } };
+  it("shows the Vacancy entry form when a Candidate Profile exists", () => {
+    mocks.profileQueryResult = { profile: { name: "Abel" } };
 
     render(<HomeApp />);
 
-    expect(screen.getByText(/your candidate profile is ready/i)).toBeInTheDocument();
-    expect(screen.getByText(/vacancy-specific cvs and cover letters/i)).toBeInTheDocument();
+    expect(screen.getByText(/add a vacancy/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/vacancy description/i)).toBeInTheDocument();
+  });
+
+  it("lists existing Vacancy Understandings", () => {
+    mocks.profileQueryResult = { profile: { name: "Abel" } };
+    mocks.vacanciesQueryResult = [
+      {
+        _id: "vac123",
+        _creationTime: 1,
+        ownerToken: "owner",
+        profileId: "profile123",
+        vacancyText: "Vacancy text",
+        companyName: "Acme",
+        companyHomepageUrl: null,
+        companyConfidence: 0.9,
+        title: "Frontend Developer",
+        titleConfidence: 0.9,
+        language: "en",
+        languageConfidence: 0.9,
+        coverLetterAddressee: null,
+        status: "ready",
+        error: null,
+        slug: "acme",
+        createdAt: Date.UTC(2026, 0, 2),
+        updatedAt: Date.UTC(2026, 0, 2),
+      },
+    ];
+
+    render(<HomeApp />);
+
+    expect(screen.getByText(/vacancy understandings/i)).toBeInTheDocument();
+    expect(screen.getByText("Frontend Developer")).toBeInTheDocument();
+    expect(screen.getByText("Acme")).toBeInTheDocument();
+    expect(screen.getByText("Ready")).toBeInTheDocument();
+  });
+
+  it("creates a Vacancy Understanding from pasted Vacancy text", async () => {
+    mocks.profileQueryResult = { profile: { name: "Abel" } };
+    mocks.createVacancy.mockResolvedValue("vac123");
+
+    render(<HomeApp />);
+
+    fireEvent.input(screen.getByLabelText(/vacancy description/i), {
+      target: {
+        value:
+          "Acme is hiring a frontend developer to build React interfaces for its customer platform.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /start vacancy understanding/i }));
+
+    await waitFor(() =>
+      expect(mocks.createVacancy).toHaveBeenCalledWith({
+        vacancyText:
+          "Acme is hiring a frontend developer to build React interfaces for its customer platform.",
+      }),
+    );
+    expect(mocks.push).toHaveBeenCalledWith("/specify-vacancy/vac123");
   });
 
   it("routes manual profile creation to /profile", () => {

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { importedCvStatusValidator, pictureValidator, profileInputValidator } from "./profileModel";
@@ -383,6 +383,59 @@ export const get = query({
   },
 });
 
+export const getForAnalysis = internalQuery({
+  args: { ownerToken: v.string() },
+  returns: v.union(profileDataOutputValidator, v.null()),
+  handler: async (ctx, args) => {
+    const profile = await getOwnedProfile(ctx, args.ownerToken);
+    if (profile === null) {
+      return null;
+    }
+    const experiences = await ctx.db
+      .query("experiences")
+      .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
+      .take(200);
+    const stories = await ctx.db
+      .query("experienceStories")
+      .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
+      .take(500);
+    const skills = await ctx.db
+      .query("skills")
+      .withIndex("by_profileId_and_kind", (q) => q.eq("profileId", profile._id))
+      .take(300);
+    const educations = await ctx.db
+      .query("educations")
+      .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
+      .take(100);
+    const hobbies = await ctx.db
+      .query("hobbies")
+      .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
+      .take(100);
+    const pictureUrl =
+      profile.profilePicture.kind === "storage"
+        ? await ctx.storage.getUrl(profile.profilePicture.storageId)
+        : profile.profilePicture.kind === "url"
+          ? profile.profilePicture.url
+          : null;
+
+    return {
+      profile,
+      pictureUrl,
+      experiences: experiences
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((experience) => ({
+          ...experience,
+          stories: stories
+            .filter((story) => story.experienceId === experience._id)
+            .sort((a, b) => a.sortOrder - b.sortOrder),
+        })),
+      skills: skills.sort((a, b) => a.sortOrder - b.sortOrder),
+      educations: educations.sort((a, b) => a.sortOrder - b.sortOrder),
+      hobbies: hobbies.sort((a, b) => a.sortOrder - b.sortOrder),
+    };
+  },
+});
+
 export const listImportedCvs = query({
   args: {},
   returns: v.array(importedCvOutputValidator),
@@ -437,6 +490,94 @@ export const setPicture = mutation({
       updatedAt: Date.now(),
     });
     return null;
+  },
+});
+
+export const addSkill = mutation({
+  args: {
+    vacancyRequiredSkillId: v.optional(v.id("vacancyRequiredSkills")),
+    kind: v.union(v.literal("soft"), v.literal("hard")),
+    name: v.string(),
+    proficiency: v.union(
+      v.literal("low"),
+      v.literal("medium"),
+      v.literal("high"),
+      v.literal("expert"),
+    ),
+    experienceIds: v.array(v.id("experiences")),
+    storyIds: v.array(v.id("experienceStories")),
+  },
+  returns: v.id("skills"),
+  handler: async (ctx, args) => {
+    const ownerToken = await requireOwnerToken(ctx);
+    const profile = await getOwnedProfile(ctx, ownerToken);
+    if (profile === null) {
+      throw new Error("Create a Candidate Profile before adding a skill");
+    }
+
+    const name = args.name.trim() || "Untitled skill";
+    const existingSkills = await ctx.db
+      .query("skills")
+      .withIndex("by_profileId_and_kind", (q) => q.eq("profileId", profile._id))
+      .take(500);
+    const existingSkill = existingSkills.find(
+      (skill) => skill.kind === args.kind && skill.name.trim().toLowerCase() === name.toLowerCase(),
+    );
+
+    const ownedExperienceIds = new Set(
+      (
+        await ctx.db
+          .query("experiences")
+          .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
+          .take(300)
+      ).map((experience) => experience._id),
+    );
+    const ownedStoryIds = new Set(
+      (
+        await ctx.db
+          .query("experienceStories")
+          .withIndex("by_profileId", (q) => q.eq("profileId", profile._id))
+          .take(500)
+      ).map((story) => story._id),
+    );
+    const experienceIds = args.experienceIds.filter((id) => ownedExperienceIds.has(id));
+    const storyIds = args.storyIds.filter((id) => ownedStoryIds.has(id));
+
+    const skillId =
+      existingSkill?._id ??
+      (await ctx.db.insert("skills", {
+        profileId: profile._id,
+        ownerToken,
+        kind: args.kind,
+        name,
+        proficiency: args.proficiency,
+        experienceIds,
+        storyIds,
+        sortOrder: existingSkills.reduce((max, skill) => Math.max(max, skill.sortOrder), -1) + 1,
+      }));
+
+    if (existingSkill !== undefined) {
+      await ctx.db.patch(skillId, {
+        proficiency: args.proficiency,
+        experienceIds: Array.from(new Set([...existingSkill.experienceIds, ...experienceIds])),
+        storyIds: Array.from(new Set([...existingSkill.storyIds, ...storyIds])),
+      });
+    }
+
+    if (args.vacancyRequiredSkillId !== undefined) {
+      const requiredSkill = await ctx.db.get(args.vacancyRequiredSkillId);
+      if (requiredSkill !== null && requiredSkill.ownerToken === ownerToken) {
+        await ctx.db.patch(requiredSkill._id, {
+          matchStatus: "matched",
+          matchedCandidateSkillIds: Array.from(
+            new Set([...requiredSkill.matchedCandidateSkillIds, skillId]),
+          ),
+        });
+      }
+    }
+
+    await ctx.db.patch(profile._id, { updatedAt: Date.now() });
+    return skillId;
   },
 });
 
