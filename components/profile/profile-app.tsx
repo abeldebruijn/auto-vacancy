@@ -1,13 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import {
-  Authenticated,
-  Unauthenticated,
-  useAction,
-  useMutation,
-  useQuery,
-} from "convex/react";
+import { Authenticated, Unauthenticated, useAction, useMutation, useQuery } from "convex/react";
 import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import {
   BriefcaseBusiness,
@@ -61,18 +55,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -82,8 +66,13 @@ import {
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -96,12 +85,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Field,
-  ListField,
-  Panel,
-  TextArea,
-} from "@/components/profile/profile-form-fields";
+import { Field, ListField, Panel, TextArea } from "@/components/profile/profile-form-fields";
 import {
   EducationFormBody,
   ExperienceFormBody,
@@ -164,11 +148,7 @@ function ImportedCvHistory({
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-2 space-y-2">
             {older.map((item) => (
-              <ImportedCvRow
-                key={item._id}
-                item={item}
-                onApplyPreview={onApplyPreview}
-              />
+              <ImportedCvRow key={item._id} item={item} onApplyPreview={onApplyPreview} />
             ))}
           </CollapsibleContent>
         </Collapsible>
@@ -184,46 +164,214 @@ function ImportedCvRow({
   item: ImportedCvItem;
   onApplyPreview: (importedCvId: Id<"importedCvs">) => Promise<void>;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
+
   return (
-    <div className="rounded-md border border-neutral-200 p-2 text-xs">
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate font-medium">{item.filename}</span>
-        <Badge variant={item.status === "failed" ? "destructive" : "secondary"}>
-          {item.status}
-        </Badge>
+    <>
+      <div
+        className="cursor-pointer rounded-md border border-neutral-200 p-2 text-xs transition-colors hover:bg-muted/50"
+        role="button"
+        tabIndex={0}
+        onClick={() => setIsOpen(true)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") setIsOpen(true);
+        }}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate font-medium">{item.filename}</span>
+          <Badge variant={item.status === "failed" ? "destructive" : "secondary"}>
+            {item.status}
+          </Badge>
+        </div>
+        {item.status === "preview" && (
+          <Button
+            className="mt-2 w-full"
+            size="sm"
+            variant="outline"
+            onClick={(event) => {
+              event.stopPropagation();
+              void onApplyPreview(item._id);
+            }}
+          >
+            <Check className="size-3.5" />
+            Apply preview
+          </Button>
+        )}
       </div>
-      {item.status === "preview" && (
-        <Button
-          className="mt-2 w-full"
-          size="sm"
-          variant="outline"
-          onClick={() => void onApplyPreview(item._id)}
-        >
-          <Check className="size-3.5" />
-          Apply preview
-        </Button>
-      )}
+
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{item.filename}</DialogTitle>
+          </DialogHeader>
+          <MarkdownPreview markdown={item.markdown} />
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+function MarkdownPreview({ markdown }: { markdown: string }) {
+  const lines = markdown.split(/\r?\n/);
+
+  return (
+    <div className="space-y-2 text-sm leading-6">
+      {lines.map((line, index) => {
+        const trimmed = line.trim();
+        if (trimmed === "") return <div key={index} className="h-2" />;
+        if (trimmed.startsWith("### ")) {
+          return (
+            <h3 key={index} className="pt-2 font-semibold">
+              {trimmed.slice(4)}
+            </h3>
+          );
+        }
+        if (trimmed.startsWith("## ")) {
+          return (
+            <h2 key={index} className="pt-3 text-base font-semibold">
+              {trimmed.slice(3)}
+            </h2>
+          );
+        }
+        if (trimmed.startsWith("# ")) {
+          return (
+            <h1 key={index} className="pt-3 text-lg font-semibold">
+              {trimmed.slice(2)}
+            </h1>
+          );
+        }
+        if (trimmed.startsWith("- ")) {
+          return (
+            <div key={index} className="flex gap-2">
+              <span className="text-muted-foreground">-</span>
+              <span>{trimmed.slice(2)}</span>
+            </div>
+          );
+        }
+        return <p key={index}>{trimmed}</p>;
+      })}
     </div>
   );
 }
 
+function InlineSelectDropdown<TValue extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: TValue;
+  options: readonly TValue[];
+  onChange: (value: TValue) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={label}
+        render={<Button className="h-7 px-1.5" size="sm" variant="ghost" />}
+      >
+        {value}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-36">
+        <DropdownMenuRadioGroup value={value} onValueChange={(next) => onChange(next as TValue)}>
+          {options.map((option) => (
+            <DropdownMenuRadioItem key={option} value={option}>
+              {option}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function SkillEvidenceDropdown({
+  skill,
+  evidenceOptions,
+  onChange,
+}: {
+  skill: SkillForm;
+  evidenceOptions: EvidenceOptions;
+  onChange: (skill: SkillForm) => void;
+}) {
+  const label = formatSkillEvidence(skill, evidenceOptions);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label="Select skill evidence"
+        render={<Button className="h-7 min-w-0 max-w-40 px-1.5" size="sm" variant="ghost" />}
+      >
+        <span className="truncate">{label}</span>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-64">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Experiences</DropdownMenuLabel>
+          {evidenceOptions.experiences.length === 0 ? (
+            <DropdownMenuItem disabled>No experiences</DropdownMenuItem>
+          ) : (
+            evidenceOptions.experiences.map((option) => (
+              <DropdownMenuCheckboxItem
+                key={option.id}
+                checked={skill.experienceIds.includes(option.id)}
+                onCheckedChange={(checked) =>
+                  onChange({
+                    ...skill,
+                    experienceIds: checked
+                      ? [...skill.experienceIds, option.id]
+                      : skill.experienceIds.filter((id) => id !== option.id),
+                  })
+                }
+              >
+                <span className="truncate">{option.label}</span>
+              </DropdownMenuCheckboxItem>
+            ))
+          )}
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Experience Stories</DropdownMenuLabel>
+          {evidenceOptions.stories.length === 0 ? (
+            <DropdownMenuItem disabled>No stories</DropdownMenuItem>
+          ) : (
+            evidenceOptions.stories.map((option) => (
+              <DropdownMenuCheckboxItem
+                key={option.id}
+                checked={skill.storyIds.includes(option.id)}
+                onCheckedChange={(checked) =>
+                  onChange({
+                    ...skill,
+                    storyIds: checked
+                      ? [...skill.storyIds, option.id]
+                      : skill.storyIds.filter((id) => id !== option.id),
+                  })
+                }
+              >
+                <span className="truncate">{option.label}</span>
+              </DropdownMenuCheckboxItem>
+            ))
+          )}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 function ExperienceTable({
   experiences,
+  openAdded,
   onChange,
 }: {
   experiences: ExperienceForm[];
+  openAdded?: { index: number; nonce: number } | null;
   onChange: (experiences: ExperienceForm[]) => void;
 }) {
-  const [editingExperience, setEditingExperience] = useState<number | null>(
-    null,
-  );
+  const [editingExperience, setEditingExperience] = useState<number | null>(null);
   const [editingStory, setEditingStory] = useState<{
     experienceIndex: number;
     storyIndex: number;
   } | null>(null);
-  const [deletingExperience, setDeletingExperience] = useState<number | null>(
-    null,
-  );
+  const [deletingExperience, setDeletingExperience] = useState<number | null>(null);
   const [deletingStory, setDeletingStory] = useState<{
     experienceIndex: number;
     storyIndex: number;
@@ -233,11 +381,7 @@ function ExperienceTable({
     replaceAt(experiences, index, next, onChange);
   }
 
-  function updateStory(
-    experienceIndex: number,
-    storyIndex: number,
-    next: StoryForm,
-  ) {
+  function updateStory(experienceIndex: number, storyIndex: number, next: StoryForm) {
     const experience = experiences[experienceIndex];
     if (!experience) return;
     replaceAt(experience.stories, storyIndex, next, (stories) =>
@@ -245,22 +389,13 @@ function ExperienceTable({
     );
   }
 
+  useEffect(() => {
+    if (openAdded) setEditingExperience(openAdded.index);
+  }, [openAdded]);
+
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            onChange([...experiences, newExperience()]);
-            setEditingExperience(experiences.length);
-          }}
-        >
-          <Plus className="size-3.5" />
-          Add experience
-        </Button>
-      </div>
-      <Table>
+      <Table className="table-fixed">
         <TableHeader>
           <TableRow>
             <TableHead>Employer</TableHead>
@@ -274,10 +409,7 @@ function ExperienceTable({
         <TableBody>
           {experiences.length === 0 ? (
             <TableRow>
-              <TableCell
-                colSpan={4}
-                className="h-24 text-center text-muted-foreground"
-              >
+              <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
                 No experiences yet.
               </TableCell>
             </TableRow>
@@ -305,9 +437,7 @@ function ExperienceTable({
                         <MoreHorizontal className="size-4" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem
-                          onClick={() => setEditingExperience(experienceIndex)}
-                        >
+                        <DropdownMenuItem onClick={() => setEditingExperience(experienceIndex)}>
                           Edit experience
                         </DropdownMenuItem>
                         <DropdownMenuItem
@@ -336,14 +466,8 @@ function ExperienceTable({
                   </TableCell>
                 </TableRow>
                 {experience.stories.map((story, storyIndex) => (
-                  <TableRow
-                    key={`story-${experienceIndex}-${storyIndex}`}
-                    className="bg-muted/20"
-                  >
-                    <TableCell
-                      className="pl-8 text-muted-foreground"
-                      colSpan={3}
-                    >
+                  <TableRow key={`story-${experienceIndex}-${storyIndex}`} className="bg-muted/20">
+                    <TableCell className="pl-8 text-muted-foreground" colSpan={3}>
                       {story.projectName || "Untitled story"}
                     </TableCell>
                     <TableCell className="text-right">
@@ -356,17 +480,13 @@ function ExperienceTable({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-40">
                           <DropdownMenuItem
-                            onClick={() =>
-                              setEditingStory({ experienceIndex, storyIndex })
-                            }
+                            onClick={() => setEditingStory({ experienceIndex, storyIndex })}
                           >
                             Edit story
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             variant="destructive"
-                            onClick={() =>
-                              setDeletingStory({ experienceIndex, storyIndex })
-                            }
+                            onClick={() => setDeletingStory({ experienceIndex, storyIndex })}
                           >
                             Delete story
                           </DropdownMenuItem>
@@ -382,10 +502,7 @@ function ExperienceTable({
       </Table>
 
       {editingExperience !== null && experiences[editingExperience] && (
-        <Dialog
-          open
-          onOpenChange={(open) => !open && setEditingExperience(null)}
-        >
+        <Dialog open onOpenChange={(open) => !open && setEditingExperience(null)}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Edit experience</DialogTitle>
@@ -402,26 +519,16 @@ function ExperienceTable({
       )}
 
       {editingStory !== null &&
-        experiences[editingStory.experienceIndex]?.stories[
-          editingStory.storyIndex
-        ] && (
+        experiences[editingStory.experienceIndex]?.stories[editingStory.storyIndex] && (
           <Dialog open onOpenChange={(open) => !open && setEditingStory(null)}>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Edit Experience Story</DialogTitle>
               </DialogHeader>
               <StoryFormBody
-                story={
-                  experiences[editingStory.experienceIndex].stories[
-                    editingStory.storyIndex
-                  ]
-                }
+                story={experiences[editingStory.experienceIndex].stories[editingStory.storyIndex]}
                 onChange={(next) =>
-                  updateStory(
-                    editingStory.experienceIndex,
-                    editingStory.storyIndex,
-                    next,
-                  )
+                  updateStory(editingStory.experienceIndex, editingStory.storyIndex, next)
                 }
               />
               <DialogFooter>
@@ -439,8 +546,8 @@ function ExperienceTable({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete experience?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the experience and its Experience Stories from the
-              Candidate Profile draft.
+              This removes the experience and its Experience Stories from the Candidate Profile
+              draft.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -469,8 +576,7 @@ function ExperienceTable({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Experience Story?</AlertDialogTitle>
             <AlertDialogDescription>
-              This removes the Experience Story from the Candidate Profile
-              draft.
+              This removes the Experience Story from the Candidate Profile draft.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -481,14 +587,11 @@ function ExperienceTable({
                 if (deletingStory !== null) {
                   const experience = experiences[deletingStory.experienceIndex];
                   if (experience) {
-                    removeAt(
-                      experience.stories,
-                      deletingStory.storyIndex,
-                      (stories) =>
-                        updateExperience(deletingStory.experienceIndex, {
-                          ...experience,
-                          stories,
-                        }),
+                    removeAt(experience.stories, deletingStory.storyIndex, (stories) =>
+                      updateExperience(deletingStory.experienceIndex, {
+                        ...experience,
+                        stories,
+                      }),
                     );
                   }
                 }
@@ -529,10 +632,12 @@ function formatYearMonth(year: number | null, month: number | null) {
 function SkillTable({
   skills,
   evidenceOptions,
+  openAdded,
   onChange,
 }: {
   skills: SkillForm[];
   evidenceOptions: EvidenceOptions;
+  openAdded?: { index: number; nonce: number } | null;
   onChange: (skills: SkillForm[]) => void;
 }) {
   const [editingSkill, setEditingSkill] = useState<number | null>(null);
@@ -542,28 +647,19 @@ function SkillTable({
     replaceAt(skills, index, next, onChange);
   }
 
+  useEffect(() => {
+    if (openAdded) setEditingSkill(openAdded.index);
+  }, [openAdded]);
+
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            onChange([...skills, newSkill("hard")]);
-            setEditingSkill(skills.length);
-          }}
-        >
-          <Plus className="size-3.5" />
-          Add skill
-        </Button>
-      </div>
-      <Table>
+      <Table className="table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Kind</TableHead>
-            <TableHead>Proficiency</TableHead>
-            <TableHead>Evidence</TableHead>
+            <TableHead className="w-[58%]">Name</TableHead>
+            <TableHead className="w-[10%]">Kind</TableHead>
+            <TableHead className="w-[14%]">Proficiency</TableHead>
+            <TableHead className="w-[14%]">Evidence</TableHead>
             <TableHead className="w-10">
               <span className="sr-only">Actions</span>
             </TableHead>
@@ -575,13 +671,31 @@ function SkillTable({
           ) : (
             skills.map((skill, index) => (
               <TableRow key={index}>
-                <TableCell className="font-medium">
+                <TableCell className="truncate font-medium">
                   {skill.name || "Untitled skill"}
                 </TableCell>
-                <TableCell>{skill.kind}</TableCell>
-                <TableCell>{skill.proficiency}</TableCell>
                 <TableCell>
-                  {formatSkillEvidence(skill, evidenceOptions)}
+                  <InlineSelectDropdown
+                    label="Select skill kind"
+                    value={skill.kind}
+                    options={["soft", "hard"] as const}
+                    onChange={(kind) => updateSkill(index, { ...skill, kind })}
+                  />
+                </TableCell>
+                <TableCell>
+                  <InlineSelectDropdown
+                    label="Select skill proficiency"
+                    value={skill.proficiency}
+                    options={["low", "medium", "high", "expert"] as const}
+                    onChange={(proficiency) => updateSkill(index, { ...skill, proficiency })}
+                  />
+                </TableCell>
+                <TableCell className="min-w-0">
+                  <SkillEvidenceDropdown
+                    skill={skill}
+                    evidenceOptions={evidenceOptions}
+                    onChange={(next) => updateSkill(index, next)}
+                  />
                 </TableCell>
                 <TableCell className="text-right">
                   <RowActions
@@ -632,41 +746,32 @@ function SkillTable({
 
 function EducationTable({
   educations,
+  openAdded,
   onChange,
 }: {
   educations: EducationForm[];
+  openAdded?: { index: number; nonce: number } | null;
   onChange: (educations: EducationForm[]) => void;
 }) {
   const [editingEducation, setEditingEducation] = useState<number | null>(null);
-  const [deletingEducation, setDeletingEducation] = useState<number | null>(
-    null,
-  );
+  const [deletingEducation, setDeletingEducation] = useState<number | null>(null);
 
   function updateEducation(index: number, next: EducationForm) {
     replaceAt(educations, index, next, onChange);
   }
 
+  useEffect(() => {
+    if (openAdded) setEditingEducation(openAdded.index);
+  }, [openAdded]);
+
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            onChange([...educations, newEducation()]);
-            setEditingEducation(educations.length);
-          }}
-        >
-          <Plus className="size-3.5" />
-          Add education
-        </Button>
-      </div>
-      <Table>
+      <Table className="table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead>Institute</TableHead>
-            <TableHead>Major</TableHead>
-            <TableHead>Period</TableHead>
+            <TableHead className="w-[35%]">Institute</TableHead>
+            <TableHead className="w-[45%]">Major</TableHead>
+            <TableHead className="w-[15%]">Period</TableHead>
             <TableHead className="w-10">
               <span className="sr-only">Actions</span>
             </TableHead>
@@ -678,15 +783,13 @@ function EducationTable({
           ) : (
             educations.map((education, index) => (
               <TableRow key={index}>
-                <TableCell className="font-medium">
+                <TableCell className="truncate font-medium">
                   {education.institute || "Untitled education"}
                 </TableCell>
-                <TableCell>
-                  {education.major || (
-                    <span className="text-muted-foreground">None</span>
-                  )}
+                <TableCell className="truncate">
+                  {education.major || <span className="text-muted-foreground">None</span>}
                 </TableCell>
-                <TableCell>{formatEducationPeriod(education)}</TableCell>
+                <TableCell className="truncate">{formatEducationPeriod(education)}</TableCell>
                 <TableCell className="text-right">
                   <RowActions
                     label="Education actions"
@@ -703,10 +806,7 @@ function EducationTable({
       </Table>
 
       {editingEducation !== null && educations[editingEducation] && (
-        <Dialog
-          open
-          onOpenChange={(open) => !open && setEditingEducation(null)}
-        >
+        <Dialog open onOpenChange={(open) => !open && setEditingEducation(null)}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Edit education</DialogTitle>
@@ -728,8 +828,7 @@ function EducationTable({
         description="This removes the education from the Candidate Profile draft."
         onOpenChange={(open) => !open && setDeletingEducation(null)}
         onConfirm={() => {
-          if (deletingEducation !== null)
-            removeAt(educations, deletingEducation, onChange);
+          if (deletingEducation !== null) removeAt(educations, deletingEducation, onChange);
           setDeletingEducation(null);
         }}
       />
@@ -739,9 +838,11 @@ function EducationTable({
 
 function HobbyTable({
   hobbies,
+  openAdded,
   onChange,
 }: {
   hobbies: HobbyForm[];
+  openAdded?: { index: number; nonce: number } | null;
   onChange: (hobbies: HobbyForm[]) => void;
 }) {
   const [editingHobby, setEditingHobby] = useState<number | null>(null);
@@ -751,27 +852,18 @@ function HobbyTable({
     replaceAt(hobbies, index, next, onChange);
   }
 
+  useEffect(() => {
+    if (openAdded) setEditingHobby(openAdded.index);
+  }, [openAdded]);
+
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => {
-            onChange([...hobbies, newHobby()]);
-            setEditingHobby(hobbies.length);
-          }}
-        >
-          <Plus className="size-3.5" />
-          Add hobby
-        </Button>
-      </div>
-      <Table>
+      <Table className="table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead>Title</TableHead>
-            <TableHead>Period</TableHead>
-            <TableHead>Details</TableHead>
+            <TableHead className="w-[25%]">Title</TableHead>
+            <TableHead className="w-[16%]">Period</TableHead>
+            <TableHead className="w-[54%]">Details</TableHead>
             <TableHead className="w-10">
               <span className="sr-only">Actions</span>
             </TableHead>
@@ -783,14 +875,12 @@ function HobbyTable({
           ) : (
             hobbies.map((hobby, index) => (
               <TableRow key={index}>
-                <TableCell className="font-medium">
+                <TableCell className="truncate font-medium">
                   {hobby.title || "Untitled hobby"}
                 </TableCell>
-                <TableCell>{formatHobbyPeriod(hobby)}</TableCell>
-                <TableCell className="max-w-[28rem] truncate">
-                  {hobby.details || (
-                    <span className="text-muted-foreground">None</span>
-                  )}
+                <TableCell className="truncate">{formatHobbyPeriod(hobby)}</TableCell>
+                <TableCell className="truncate">
+                  {hobby.details || <span className="text-muted-foreground">None</span>}
                 </TableCell>
                 <TableCell className="text-right">
                   <RowActions
@@ -830,8 +920,7 @@ function HobbyTable({
         description="This removes the hobby from the Candidate Profile draft."
         onOpenChange={(open) => !open && setDeletingHobby(null)}
         onConfirm={() => {
-          if (deletingHobby !== null)
-            removeAt(hobbies, deletingHobby, onChange);
+          if (deletingHobby !== null) removeAt(hobbies, deletingHobby, onChange);
           setDeletingHobby(null);
         }}
       />
@@ -854,10 +943,7 @@ function RowActions({
 }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={label}
-        render={<Button size="icon-sm" variant="ghost" />}
-      >
+      <DropdownMenuTrigger aria-label={label} render={<Button size="icon-sm" variant="ghost" />}>
         <MoreHorizontal className="size-4" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40">
@@ -903,48 +989,37 @@ function DeleteDialog({
   );
 }
 
-function EmptyTableRow({
-  colSpan,
-  children,
-}: {
-  colSpan: number;
-  children: React.ReactNode;
-}) {
+function EmptyTableRow({ colSpan, children }: { colSpan: number; children: React.ReactNode }) {
   return (
     <TableRow>
-      <TableCell
-        colSpan={colSpan}
-        className="h-24 text-center text-muted-foreground"
-      >
+      <TableCell colSpan={colSpan} className="h-24 text-center text-muted-foreground">
         {children}
       </TableCell>
     </TableRow>
   );
 }
 
-function formatSkillEvidence(
-  skill: SkillForm,
-  evidenceOptions: EvidenceOptions,
-) {
-  const experienceLabels = evidenceOptions.experiences
-    .filter((option) => skill.experienceIds.includes(option.id))
-    .map((option) => option.label);
-  const storyLabels = evidenceOptions.stories
-    .filter((option) => skill.storyIds.includes(option.id))
-    .map((option) => option.label);
-  const labels = [...experienceLabels, ...storyLabels].filter(Boolean);
+function formatSkillEvidence(skill: SkillForm, evidenceOptions: EvidenceOptions) {
+  const experienceCount = evidenceOptions.experiences.filter((option) =>
+    skill.experienceIds.includes(option.id),
+  ).length;
+  const storyCount = evidenceOptions.stories.filter((option) =>
+    skill.storyIds.includes(option.id),
+  ).length;
+  const parts = [
+    experienceCount > 0
+      ? `${experienceCount} ${experienceCount === 1 ? "experience" : "experiences"}`
+      : null,
+    storyCount > 0 ? `${storyCount} ${storyCount === 1 ? "story" : "stories"}` : null,
+  ].filter(Boolean);
 
-  if (labels.length === 0)
-    return <span className="text-muted-foreground">None</span>;
-  if (labels.length <= 2) return labels.join(", ");
-  return `${labels.slice(0, 2).join(", ")} +${labels.length - 2}`;
+  if (parts.length === 0) return <span className="text-muted-foreground">None</span>;
+  return parts.join(", ");
 }
 
 function formatEducationPeriod(education: EducationForm) {
   const from = formatYearMonth(education.fromYear, education.fromMonth);
-  const to = education.isCurrent
-    ? "Current"
-    : formatYearMonth(education.toYear, education.toMonth);
+  const to = education.isCurrent ? "Current" : formatYearMonth(education.toYear, education.toMonth);
 
   if (from && to) return `${from} - ${to}`;
   if (from) return `${from} -`;
@@ -972,6 +1047,22 @@ function ProfileWorkspace() {
   const setPicture = useMutation(api.profile.setPicture);
   const [form, setForm] = useState<ProfileForm>(emptyProfile);
   const [status, setStatus] = useState<string | null>(null);
+  const [openAddedExperience, setOpenAddedExperience] = useState<{
+    index: number;
+    nonce: number;
+  } | null>(null);
+  const [openAddedSkill, setOpenAddedSkill] = useState<{
+    index: number;
+    nonce: number;
+  } | null>(null);
+  const [openAddedEducation, setOpenAddedEducation] = useState<{
+    index: number;
+    nonce: number;
+  } | null>(null);
+  const [openAddedHobby, setOpenAddedHobby] = useState<{
+    index: number;
+    nonce: number;
+  } | null>(null);
 
   useEffect(() => {
     if (profileData === undefined) return;
@@ -1084,8 +1175,8 @@ function ProfileWorkspace() {
               Upload once, profile updates automatically
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Drop in a markdown CV and Auto Vacancy extracts your details,
-              experiences, skills, education, and hobbies into the editor below.
+              Drop in a markdown CV and Auto Vacancy extracts your details, experiences, skills,
+              education, and hobbies into the editor below.
             </p>
           </div>
           <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-neutral-300 bg-neutral-50 px-4 text-center text-sm">
@@ -1126,16 +1217,9 @@ function ProfileWorkspace() {
 
         <Panel title="Profile Picture" icon={<Camera className="size-4" />}>
           <div className="flex items-center gap-3">
-            <Avatar
-              className="size-16 rounded-lg border border-neutral-200"
-              size="lg"
-            >
+            <Avatar className="size-16 rounded-lg border border-neutral-200" size="lg">
               {profileData?.pictureUrl ? (
-                <AvatarImage
-                  className="rounded-lg"
-                  src={profileData.pictureUrl}
-                  alt=""
-                />
+                <AvatarImage className="rounded-lg" src={profileData.pictureUrl} alt="" />
               ) : (
                 <AvatarFallback className="rounded-lg bg-neutral-50">
                   <UserRound className="size-6" />
@@ -1160,15 +1244,11 @@ function ProfileWorkspace() {
           </div>
           <Field
             label="Image URL"
-            value={
-              form.profilePicture.kind === "url" ? form.profilePicture.url : ""
-            }
+            value={form.profilePicture.kind === "url" ? form.profilePicture.url : ""}
             onChange={(value) =>
               setForm((current) => ({
                 ...current,
-                profilePicture: value
-                  ? { kind: "url", url: value }
-                  : { kind: "none" },
+                profilePicture: value ? { kind: "url", url: value } : { kind: "none" },
               }))
             }
           />
@@ -1195,11 +1275,7 @@ function ProfileWorkspace() {
 
         <Panel title="General Details" icon={<UserRound className="size-4" />}>
           <div className="grid gap-3 md:grid-cols-2">
-            <Field
-              label="Name"
-              value={form.name}
-              onChange={(name) => setForm({ ...form, name })}
-            />
+            <Field label="Name" value={form.name} onChange={(name) => setForm({ ...form, name })} />
             <Field
               label="Birthday"
               value={form.birthday ?? ""}
@@ -1218,9 +1294,7 @@ function ProfileWorkspace() {
             <Field
               label="Place of residence"
               value={form.placeOfResidence ?? ""}
-              onChange={(placeOfResidence) =>
-                setForm({ ...form, placeOfResidence })
-              }
+              onChange={(placeOfResidence) => setForm({ ...form, placeOfResidence })}
             />
             <Field
               label="Portfolio link"
@@ -1236,16 +1310,12 @@ function ProfileWorkspace() {
           <ListField
             label="Other social links"
             values={form.otherSocialLinks}
-            onChange={(otherSocialLinks) =>
-              setForm({ ...form, otherSocialLinks })
-            }
+            onChange={(otherSocialLinks) => setForm({ ...form, otherSocialLinks })}
           />
           <ListField
             label="What characterises me"
             values={form.characteristics}
-            onChange={(characteristics) =>
-              setForm({ ...form, characteristics })
-            }
+            onChange={(characteristics) => setForm({ ...form, characteristics })}
           />
           <ListField
             label="In my next steps I would like to"
@@ -1262,31 +1332,124 @@ function ProfileWorkspace() {
         <Panel
           title="Experiences"
           icon={<BriefcaseBusiness className="size-4" />}
+          addItem={
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const index = form.experiences.length;
+                setForm({
+                  ...form,
+                  experiences: [...form.experiences, newExperience()],
+                });
+                setOpenAddedExperience((current) => ({
+                  index,
+                  nonce: (current?.nonce ?? 0) + 1,
+                }));
+              }}
+            >
+              <Plus className="size-3.5" />
+              Add experience
+            </Button>
+          }
         >
           <ExperienceTable
             experiences={form.experiences}
+            openAdded={openAddedExperience}
             onChange={(experiences) => setForm({ ...form, experiences })}
           />
         </Panel>
 
-        <Panel title="Skills" icon={<Sparkles className="size-4" />}>
+        <Panel
+          title="Skills"
+          icon={<Sparkles className="size-4" />}
+          addItem={
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const index = form.skills.length;
+                setForm({
+                  ...form,
+                  skills: [...form.skills, newSkill("hard")],
+                });
+                setOpenAddedSkill((current) => ({
+                  index,
+                  nonce: (current?.nonce ?? 0) + 1,
+                }));
+              }}
+            >
+              <Plus className="size-3.5" />
+              Add skill
+            </Button>
+          }
+        >
           <SkillTable
             skills={form.skills}
             evidenceOptions={evidenceOptions}
+            openAdded={openAddedSkill}
             onChange={(skills) => setForm({ ...form, skills })}
           />
         </Panel>
 
-        <Panel title="Education" icon={<GraduationCap className="size-4" />}>
+        <Panel
+          title="Education"
+          icon={<GraduationCap className="size-4" />}
+          addItem={
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const index = form.educations.length;
+                setForm({
+                  ...form,
+                  educations: [...form.educations, newEducation()],
+                });
+                setOpenAddedEducation((current) => ({
+                  index,
+                  nonce: (current?.nonce ?? 0) + 1,
+                }));
+              }}
+            >
+              <Plus className="size-3.5" />
+              Add education
+            </Button>
+          }
+        >
           <EducationTable
             educations={form.educations}
+            openAdded={openAddedEducation}
             onChange={(educations) => setForm({ ...form, educations })}
           />
         </Panel>
 
-        <Panel title="Hobbies" icon={<Heart className="size-4" />}>
+        <Panel
+          title="Hobbies"
+          icon={<Heart className="size-4" />}
+          addItem={
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const index = form.hobbies.length;
+                setForm({
+                  ...form,
+                  hobbies: [...form.hobbies, newHobby()],
+                });
+                setOpenAddedHobby((current) => ({
+                  index,
+                  nonce: (current?.nonce ?? 0) + 1,
+                }));
+              }}
+            >
+              <Plus className="size-3.5" />
+              Add hobby
+            </Button>
+          }
+        >
           <HobbyTable
             hobbies={form.hobbies}
+            openAdded={openAddedHobby}
             onChange={(hobbies) => setForm({ ...form, hobbies })}
           />
         </Panel>

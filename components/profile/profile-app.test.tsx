@@ -141,17 +141,25 @@ describe("ProfileApp", () => {
 
   it("hides Imported CV errors and collapses older history", async () => {
     mocks.importedCvs = [
-      { _id: "import-3", error: null, filename: "latest.md", status: "applied" },
+      {
+        _id: "import-3",
+        error: null,
+        filename: "latest.md",
+        markdown: "# Latest CV\n\n- React",
+        status: "applied",
+      },
       {
         _id: "import-2",
         error: "Unauthenticated. Configure AI_GATEWAY_API_KEY.",
         filename: "older.md",
+        markdown: "# Older CV",
         status: "failed",
       },
       {
         _id: "import-1",
         error: "Another hidden error.",
         filename: "oldest.md",
+        markdown: "# Oldest CV",
         status: "failed",
       },
     ];
@@ -166,6 +174,27 @@ describe("ProfileApp", () => {
 
     expect(screen.getByText("older.md")).toBeInTheDocument();
     expect(screen.queryByText(/Another hidden error/i)).not.toBeInTheDocument();
+  });
+
+  it("opens imported CV markdown in a dialog", async () => {
+    mocks.importedCvs = [
+      {
+        _id: "import-1",
+        error: null,
+        filename: "latest.md",
+        markdown: "# Latest CV\n\n- React",
+        status: "applied",
+      },
+    ];
+
+    render(<ProfileApp />);
+
+    await userEvent.click(screen.getByRole("button", { name: /latest\.mdapplied/i }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("heading", { name: "latest.md" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("heading", { name: "Latest CV" })).toBeInTheDocument();
+    expect(within(dialog).getByText("React")).toBeInTheDocument();
   });
 
   it("renders experiences as a table with Experience Story sub-rows", () => {
@@ -225,9 +254,7 @@ describe("ProfileApp", () => {
     expect(screen.getByRole("columnheader", { name: "Proficiency" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Evidence" })).toBeInTheDocument();
     expect(screen.getByText("React")).toBeInTheDocument();
-    expect(
-      screen.getByText(/InKaart.nu, AI-assisted inspection form generation/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/1 experience, 1 story/i)).toBeInTheDocument();
 
     expect(screen.getByRole("columnheader", { name: "Institute" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Major" })).toBeInTheDocument();
@@ -264,5 +291,59 @@ describe("ProfileApp", () => {
     fireEvent.click(screen.getByRole("button", { name: "Hobby actions" }));
     await userEvent.click(await screen.findByText("Edit hobby"));
     expect(screen.getByRole("heading", { name: "Edit hobby" })).toBeInTheDocument();
+  });
+
+  it("opens edit dialogs immediately after adding table items", async () => {
+    render(<ProfileApp />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Add skill" }));
+    expect(screen.getByRole("heading", { name: "Edit skill" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: "Edit skill" })).not.toBeInTheDocument(),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Add education" }));
+    expect(screen.getByRole("heading", { name: "Edit education" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: "Edit education" })).not.toBeInTheDocument(),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Add hobby" }));
+    expect(screen.getByRole("heading", { name: "Edit hobby" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: "Edit hobby" })).not.toBeInTheDocument(),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Add experience" }));
+    expect(screen.getByRole("heading", { name: "Edit experience" })).toBeInTheDocument();
+  });
+
+  it("updates skill kind, proficiency, and evidence from inline dropdowns", async () => {
+    render(<ProfileApp />);
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Select skill kind" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select skill kind" }));
+    await userEvent.click(await screen.findByText("soft"));
+    expect(screen.getByRole("button", { name: "Select skill kind" })).toHaveTextContent("soft");
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Select skill proficiency" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select skill proficiency" }));
+    await userEvent.click(await screen.findByText("high"));
+    expect(screen.getByRole("button", { name: "Select skill proficiency" })).toHaveTextContent(
+      "high",
+    );
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Select skill evidence" }));
+    fireEvent.click(screen.getByRole("button", { name: "Select skill evidence" }));
+    const experienceOption = (await screen.findAllByText("InKaart.nu")).at(-1);
+    expect(experienceOption).toBeDefined();
+    await userEvent.click(experienceOption!);
+
+    expect(screen.getByRole("button", { name: "Select skill evidence" })).toHaveTextContent(
+      "1 story",
+    );
   });
 });

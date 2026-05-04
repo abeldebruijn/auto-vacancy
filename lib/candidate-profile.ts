@@ -67,6 +67,7 @@ export type EvidenceOptions = {
 export type ImportedCvItem = {
   _id: Id<"importedCvs">;
   filename: string;
+  markdown: string;
   status: "processing" | "applied" | "preview" | "failed";
   error: string | null;
 };
