@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Authenticated, Unauthenticated, useAction, useMutation, useQuery } from "convex/react";
-import { SignInButton, SignUpButton, UserButton } from "@clerk/nextjs";
+import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import {
   BriefcaseBusiness,
   Camera,
@@ -49,20 +49,12 @@ import {
   HobbyEditor,
   SkillEditor,
 } from "@/components/profile/profile-section-editors";
-import { StartProfileScreen } from "@/components/profile/start-profile-screen";
+import { AppHeader } from "@/components/profile/app-header";
 
 export function ProfileApp() {
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-950">
-      <header className="sticky top-0 z-10 border-b border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <BriefcaseBusiness className="size-4" />
-            Auto Vacancy
-          </div>
-          <UserButton />
-        </div>
-      </header>
+      <AppHeader logoHref="/" />
       <Authenticated>
         <ProfileWorkspace />
       </Authenticated>
@@ -101,11 +93,14 @@ function ProfileWorkspace() {
   const setPicture = useMutation(api.profile.setPicture);
   const [form, setForm] = useState<ProfileForm>(emptyProfile);
   const [status, setStatus] = useState<string | null>(null);
-  const [manualStarted, setManualStarted] = useState(false);
-  const [pastedMarkdown, setPastedMarkdown] = useState("");
 
   useEffect(() => {
-    if (profileData === undefined || profileData === null) return;
+    if (profileData === undefined) return;
+    if (profileData === null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setForm(emptyProfile);
+      return;
+    }
     // The editor keeps a mutable draft while Convex owns the persisted profile.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setForm(fromProfileData(profileData as ProfileData));
@@ -197,23 +192,6 @@ function ProfileWorkspace() {
           <Skeleton className="h-48 w-full" />
         </div>
       </main>
-    );
-  }
-
-  if (profileData === null && !manualStarted) {
-    return (
-      <StartProfileScreen
-        pastedMarkdown={pastedMarkdown}
-        status={status}
-        onMarkdownChange={setPastedMarkdown}
-        onPasteImport={() => void handleImportMarkdown("pasted-cv.md", pastedMarkdown)}
-        onFileImport={(file) => void handleImport(file)}
-        onManualStart={() => {
-          setForm(emptyProfile);
-          setManualStarted(true);
-          setStatus("Manual profile started. Add your details and save.");
-        }}
-      />
     );
   }
 

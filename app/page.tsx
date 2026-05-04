@@ -1,5 +1,5 @@
-import { ProfileApp } from "@/components/profile/profile-app";
+import { HomeApp } from "@/components/profile/home-app";
 
 export default function Home() {
-  return <ProfileApp />;
+  return <HomeApp />;
 }
