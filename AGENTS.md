@@ -28,7 +28,7 @@ This project uses vite plus to manage node, dev and build commands
 - vp check - Run format, lint, and TypeScript type checks
 - vp lint - Lint code
 - vp fmt - Format code
-- vp test - Run tests
+- vp run test - Run tests
 - vp run - Run monorepo tasks
 - vp build - Build for production
 
