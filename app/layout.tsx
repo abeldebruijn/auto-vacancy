@@ -20,9 +20,6 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Auto Vacancy",
   description: "Candidate Profile workspace for vacancy-specific applications.",
-  icons: {
-    icon: "/convex.svg",
-  },
 };
 
 export default function RootLayout({
