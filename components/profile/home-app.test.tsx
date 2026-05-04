@@ -8,8 +8,10 @@ const mocks = vi.hoisted(() => ({
   analyzeVacancy: vi.fn(),
   createVacancy: vi.fn(),
   actionCallCount: 0,
+  queryCallCount: 0,
   push: vi.fn(),
-  queryResult: null as unknown,
+  profileQueryResult: null as unknown,
+  vacanciesQueryResult: [] as unknown,
 }));
 
 vi.mock("convex/react", () => ({
@@ -20,7 +22,10 @@ vi.mock("convex/react", () => ({
     return mocks.actionCallCount % 2 === 0 ? mocks.analyzeVacancy : mocks.importMarkdown;
   },
   useMutation: () => mocks.createVacancy,
-  useQuery: () => mocks.queryResult,
+  useQuery: () => {
+    mocks.queryCallCount += 1;
+    return mocks.queryCallCount % 2 === 1 ? mocks.profileQueryResult : mocks.vacanciesQueryResult;
+  },
 }));
 
 vi.mock("next/navigation", () => ({
@@ -41,8 +46,10 @@ describe("HomeApp", () => {
     mocks.analyzeVacancy.mockReset();
     mocks.createVacancy.mockReset();
     mocks.actionCallCount = 0;
+    mocks.queryCallCount = 0;
     mocks.push.mockReset();
-    mocks.queryResult = null;
+    mocks.profileQueryResult = null;
+    mocks.vacanciesQueryResult = [];
   });
 
   it("shows the start profile screen when there is no Candidate Profile", () => {
@@ -53,7 +60,7 @@ describe("HomeApp", () => {
   });
 
   it("shows the Vacancy entry form when a Candidate Profile exists", () => {
-    mocks.queryResult = { profile: { name: "Abel" } };
+    mocks.profileQueryResult = { profile: { name: "Abel" } };
 
     render(<HomeApp />);
 
@@ -61,8 +68,41 @@ describe("HomeApp", () => {
     expect(screen.getByLabelText(/vacancy description/i)).toBeInTheDocument();
   });
 
+  it("lists existing Vacancy Understandings", () => {
+    mocks.profileQueryResult = { profile: { name: "Abel" } };
+    mocks.vacanciesQueryResult = [
+      {
+        _id: "vac123",
+        _creationTime: 1,
+        ownerToken: "owner",
+        profileId: "profile123",
+        vacancyText: "Vacancy text",
+        companyName: "Acme",
+        companyHomepageUrl: null,
+        companyConfidence: 0.9,
+        title: "Frontend Developer",
+        titleConfidence: 0.9,
+        language: "en",
+        languageConfidence: 0.9,
+        coverLetterAddressee: null,
+        status: "ready",
+        error: null,
+        slug: "acme",
+        createdAt: Date.UTC(2026, 0, 2),
+        updatedAt: Date.UTC(2026, 0, 2),
+      },
+    ];
+
+    render(<HomeApp />);
+
+    expect(screen.getByText(/vacancy understandings/i)).toBeInTheDocument();
+    expect(screen.getByText("Frontend Developer")).toBeInTheDocument();
+    expect(screen.getByText("Acme")).toBeInTheDocument();
+    expect(screen.getByText("Ready")).toBeInTheDocument();
+  });
+
   it("creates a Vacancy Understanding from pasted Vacancy text", async () => {
-    mocks.queryResult = { profile: { name: "Abel" } };
+    mocks.profileQueryResult = { profile: { name: "Abel" } };
     mocks.createVacancy.mockResolvedValue("vac123");
 
     render(<HomeApp />);

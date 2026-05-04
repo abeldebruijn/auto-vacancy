@@ -7,12 +7,23 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, FileText } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { isMarkdownCvFile } from "@/lib/candidate-profile";
+import type { Doc } from "@/convex/_generated/dataModel";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { AppHeader } from "@/components/profile/app-header";
 import { StartProfileScreen } from "@/components/profile/start-profile-screen";
+import { statusLabel, vacancyReviewPath } from "@/components/vacancy/vacancy-utils";
 
 export function HomeApp() {
   return (
@@ -31,6 +42,7 @@ export function HomeApp() {
 function HomeWorkspace() {
   const router = useRouter();
   const profileData = useQuery(api.profile.get);
+  const vacancies = useQuery(api.vacancy.list);
   const importMarkdown = useAction(api.importedCv.importMarkdown);
   const createVacancy = useMutation(api.vacancy.create);
   const analyzeVacancy = useAction(api.vacancyAgents.analyze);
@@ -87,7 +99,7 @@ function HomeWorkspace() {
     }
   }
 
-  if (profileData === undefined) {
+  if (profileData === undefined || vacancies === undefined) {
     return (
       <main className="grid min-h-[70vh] place-items-center">
         <div className="w-full max-w-3xl space-y-4 px-4">
@@ -112,7 +124,7 @@ function HomeWorkspace() {
   }
 
   return (
-    <main className="mx-auto grid min-h-[calc(100vh-57px)] max-w-4xl place-items-center px-4 py-8">
+    <main className="mx-auto grid max-w-5xl gap-6 px-4 py-8">
       <Card className="w-full">
         <CardHeader>
           <CardTitle className="text-2xl">Add a Vacancy</CardTitle>
@@ -131,7 +143,9 @@ function HomeWorkspace() {
                 placeholder="Paste the full Vacancy text here..."
               />
             </div>
-            {vacancyStatus ? <p className="text-sm text-muted-foreground">{vacancyStatus}</p> : null}
+            {vacancyStatus ? (
+              <p className="text-sm text-muted-foreground">{vacancyStatus}</p>
+            ) : null}
             <div className="flex flex-wrap gap-2">
               <Button type="submit" disabled={vacancyText.trim().length < 40}>
                 Start Vacancy Understanding
@@ -144,7 +158,67 @@ function HomeWorkspace() {
           </form>
         </CardContent>
       </Card>
+      <VacancyTable vacancies={vacancies} onOpen={(path) => router.push(path)} />
     </main>
+  );
+}
+
+function VacancyTable({
+  vacancies,
+  onOpen,
+}: {
+  vacancies: Doc<"vacancyUnderstandings">[];
+  onOpen: (path: string) => void;
+}) {
+  return (
+    <Card className="w-full">
+      <CardHeader>
+        <CardTitle className="text-2xl">Vacancy Understandings</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {vacancies.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No Vacancy Understandings yet.</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Vacancy</TableHead>
+                <TableHead>Company</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {vacancies.map((vacancy) => (
+                <TableRow key={vacancy._id}>
+                  <TableCell className="font-medium">
+                    {vacancy.title ?? "Untitled Vacancy"}
+                  </TableCell>
+                  <TableCell>{vacancy.companyName ?? "Unknown"}</TableCell>
+                  <TableCell>
+                    <Badge variant={vacancy.status === "ready" ? "default" : "secondary"}>
+                      {statusLabel(vacancy.status)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{new Date(vacancy.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onOpen(vacancyReviewPath(vacancy.slug, vacancy._id))}
+                    >
+                      Open
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

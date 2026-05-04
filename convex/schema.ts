@@ -160,11 +160,7 @@ export default defineSchema({
     kind: v.union(v.literal("soft"), v.literal("hard")),
     name: v.string(),
     evidence: v.union(v.string(), v.null()),
-    matchStatus: v.union(
-      v.literal("matched"),
-      v.literal("missing"),
-      v.literal("uncertain"),
-    ),
+    matchStatus: v.union(v.literal("matched"), v.literal("missing"), v.literal("uncertain")),
     matchedCandidateSkillIds: v.array(v.id("skills")),
     sortOrder: v.number(),
   }).index("by_vacancyUnderstandingId", ["vacancyUnderstandingId"]),

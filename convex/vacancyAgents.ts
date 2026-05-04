@@ -41,7 +41,7 @@ type CandidateProfileData = typeof api.profile.get._returnType;
 type VacancyDetail = typeof api.vacancy.get._returnType;
 
 function modelId() {
-  return process.env.AI_GATEWAY_MODEL ?? "openai/gpt-5.5";
+  return process.env.AI_GATEWAY_MODEL ?? "openai/gpt-5.1-mini";
 }
 
 function normalizeUrl(url: string | null) {
@@ -127,6 +127,8 @@ async function summarizeSource(args: {
   if (args.text.trim().length < 120) return null;
   const { output } = await generateText({
     model: modelId(),
+    maxRetries: 1,
+    timeout: { totalMs: 45000 },
     output: Output.object({
       schema: researchSummarySchema,
       name: "company_research_summary",
@@ -146,7 +148,10 @@ async function summarizeSource(args: {
 }
 
 function normalizeSkillName(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9+#.]+/g, " ").trim();
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9+#.]+/g, " ")
+    .trim();
 }
 
 function skillMatches(required: string, candidate: string) {
@@ -166,8 +171,7 @@ function matchSkills(
     );
     return {
       ...skill,
-      matchStatus:
-        matchedCandidateSkills.length > 0 ? ("matched" as const) : ("missing" as const),
+      matchStatus: matchedCandidateSkills.length > 0 ? ("matched" as const) : ("missing" as const),
       matchedCandidateSkillIds: matchedCandidateSkills.map((candidateSkill) => candidateSkill._id),
     };
   });
@@ -198,8 +202,16 @@ async function buildResearchSummaries(companyName: string, homepageUrl: string |
   if (homepageUrl !== null) {
     const pages = [
       { sourceType: "homepage" as const, sourceTitle: "Company homepage", url: homepageUrl },
-      { sourceType: "about" as const, sourceTitle: "Company about page", url: pageUrl(homepageUrl, "/about") },
-      { sourceType: "team" as const, sourceTitle: "Company team page", url: pageUrl(homepageUrl, "/team") },
+      {
+        sourceType: "about" as const,
+        sourceTitle: "Company about page",
+        url: pageUrl(homepageUrl, "/about"),
+      },
+      {
+        sourceType: "team" as const,
+        sourceTitle: "Company team page",
+        url: pageUrl(homepageUrl, "/team"),
+      },
     ];
     const fetched = await Promise.all(
       pages.map(async (page) => ({
@@ -247,6 +259,70 @@ function companyNeedsHomepage(analysis: z.infer<typeof vacancyAnalysisSchema>) {
   return analysis.companyName === null || analysis.companyConfidence < 0.62;
 }
 
+function detectLanguage(text: string) {
+  const dutchHits = [" en ", " de ", " het ", " wij ", " jij ", " functie ", " ervaring "].filter(
+    (word) => text.toLowerCase().includes(word),
+  ).length;
+  const englishHits = [" and ", " the ", " we ", " you ", " role ", " experience "].filter((word) =>
+    text.toLowerCase().includes(word),
+  ).length;
+  if (dutchHits > englishHits) return "Dutch";
+  if (englishHits > 0) return "English";
+  return null;
+}
+
+function fallbackTitle(text: string) {
+  const titlePatterns = [
+    /(?:vacancy|role|position|functie)\s*:?\s*([^\n.]{3,80})/i,
+    /(?:hiring|zoeken|gezocht)\s+(?:a|an|een)?\s*([^\n.]{3,80})/i,
+  ];
+  for (const pattern of titlePatterns) {
+    const match = text.match(pattern)?.[1]?.trim();
+    if (match) return match.replace(/\s+/g, " ");
+  }
+  return null;
+}
+
+function timeoutFallback(args: {
+  vacancyText: string;
+  existingHomepageUrl: string | null;
+  errorMessage: string;
+}) {
+  const language = detectLanguage(args.vacancyText);
+  const title = fallbackTitle(args.vacancyText);
+  const needsHomepage = args.existingHomepageUrl === null;
+  return {
+    companyName: null,
+    companyHomepageUrl: args.existingHomepageUrl,
+    companyConfidence: 0,
+    title,
+    titleConfidence: title === null ? 0 : 0.45,
+    language,
+    languageConfidence: language === null ? 0 : 0.55,
+    coverLetterAddressee: null,
+    status: needsHomepage ? ("needs_homepage" as const) : ("asking_questions" as const),
+    error: `AI analysis timed out. Continue manually; the system can retry after the homepage is provided. ${args.errorMessage}`,
+    researchSummaries: [],
+    requiredSkills: [],
+    questions: needsHomepage
+      ? []
+      : [
+          {
+            prompt: "What company is this Vacancy for, and who should the Cover Letter address?",
+            shortPrompt: "Company and addressee",
+            reason: "AI analysis timed out before company details were extracted.",
+            required: true,
+          },
+          {
+            prompt: "What Vacancy title should Auto Vacancy use for the CV and Cover Letter?",
+            shortPrompt: "Vacancy title",
+            reason: "AI analysis timed out before the title was confidently extracted.",
+            required: true,
+          },
+        ],
+  };
+}
+
 export const analyze = action({
   args: { vacancyUnderstandingId: v.id("vacancyUnderstandings") },
   returns: v.null(),
@@ -266,6 +342,8 @@ export const analyze = action({
       ].join("\n");
       const { output } = await generateText({
         model: modelId(),
+        maxRetries: 1,
+        timeout: { totalMs: 90000 },
         output: Output.object({
           schema: vacancyAnalysisSchema,
           name: "vacancy_understanding",
@@ -312,21 +390,26 @@ export const analyze = action({
       const readableError = message.includes("Configure AI_GATEWAY_API_KEY")
         ? "AI Gateway is not configured for Convex. Set AI_GATEWAY_API_KEY in Convex environment variables and try again."
         : message;
+      const fallback = timeoutFallback({
+        vacancyText: detail.vacancy.vacancyText,
+        existingHomepageUrl: normalizeUrl(detail.vacancy.companyHomepageUrl),
+        errorMessage: readableError,
+      });
       await ctx.runMutation(api.vacancy.finishAnalysis, {
         vacancyUnderstandingId: args.vacancyUnderstandingId,
-        companyName: detail.vacancy.companyName,
-        companyHomepageUrl: detail.vacancy.companyHomepageUrl,
-        companyConfidence: detail.vacancy.companyConfidence,
-        title: detail.vacancy.title,
-        titleConfidence: detail.vacancy.titleConfidence,
-        language: detail.vacancy.language,
-        languageConfidence: detail.vacancy.languageConfidence,
-        coverLetterAddressee: detail.vacancy.coverLetterAddressee,
-        status: "failed",
-        error: readableError,
-        researchSummaries: [],
-        requiredSkills: [],
-        questions: [],
+        companyName: fallback.companyName,
+        companyHomepageUrl: fallback.companyHomepageUrl,
+        companyConfidence: fallback.companyConfidence,
+        title: fallback.title,
+        titleConfidence: fallback.titleConfidence,
+        language: fallback.language,
+        languageConfidence: fallback.languageConfidence,
+        coverLetterAddressee: fallback.coverLetterAddressee,
+        status: fallback.status,
+        error: fallback.error,
+        researchSummaries: fallback.researchSummaries,
+        requiredSkills: fallback.requiredSkills,
+        questions: fallback.questions,
       });
       return null;
     }

@@ -164,7 +164,10 @@ function SpecifyVacancyWorkspace({
               <CardTitle>Analysis failed</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-sm text-muted-foreground">{detail.vacancy.error}</p>
+              <p className="text-sm text-muted-foreground">
+                Auto Vacancy could not complete the analysis. Retry the analysis or provide the
+                company homepage when asked.
+              </p>
               <Button onClick={() => void analyzeVacancy({ vacancyUnderstandingId })}>
                 Try again
               </Button>

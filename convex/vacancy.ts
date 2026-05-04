@@ -165,21 +165,15 @@ export const get = query({
     }
     const researchSummaries = await ctx.db
       .query("vacancyResearchSummaries")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
       .take(20);
     const requiredSkills = await ctx.db
       .query("vacancyRequiredSkills")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
       .take(200);
     const questions = await ctx.db
       .query("vacancyQuestions")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
       .take(100);
     return {
       vacancy,
@@ -187,6 +181,20 @@ export const get = query({
       requiredSkills: requiredSkills.sort((a, b) => a.sortOrder - b.sortOrder),
       questions: questions.sort((a, b) => a.sortOrder - b.sortOrder),
     };
+  },
+});
+
+export const list = query({
+  args: {},
+  returns: v.array(vacancyUnderstandingOutputValidator),
+  handler: async (ctx) => {
+    const ownerToken = await requireOwnerToken(ctx);
+    const vacancies = await ctx.db
+      .query("vacancyUnderstandings")
+      .withIndex("by_ownerToken", (q) => q.eq("ownerToken", ownerToken))
+      .collect();
+
+    return vacancies.sort((a, b) => b.createdAt - a.createdAt);
   },
 });
 
@@ -204,21 +212,15 @@ export const getBySlugId = query({
     }
     const researchSummaries = await ctx.db
       .query("vacancyResearchSummaries")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
       .take(20);
     const requiredSkills = await ctx.db
       .query("vacancyRequiredSkills")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
       .take(200);
     const questions = await ctx.db
       .query("vacancyQuestions")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
       .take(100);
     return {
       vacancy,
@@ -286,9 +288,7 @@ export const understandsVacancy = mutation({
     }
     const questions = await ctx.db
       .query("vacancyQuestions")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
       .take(100);
     const blocking = questions.some((question) => question.required && question.answer === null);
     if (blocking) {
@@ -325,23 +325,17 @@ export const finishAnalysis = mutation({
     const vacancy = await getOwnedVacancy(ctx, args.vacancyUnderstandingId, ownerToken);
     for await (const summary of ctx.db
       .query("vacancyResearchSummaries")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )) {
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))) {
       await ctx.db.delete(summary._id);
     }
     for await (const skill of ctx.db
       .query("vacancyRequiredSkills")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )) {
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))) {
       await ctx.db.delete(skill._id);
     }
     for await (const question of ctx.db
       .query("vacancyQuestions")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )) {
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))) {
       await ctx.db.delete(question._id);
     }
     const now = Date.now();
