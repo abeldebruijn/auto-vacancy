@@ -109,4 +109,75 @@ export default defineSchema({
     details: v.union(v.string(), v.null()),
     sortOrder: v.number(),
   }).index("by_profileId", ["profileId"]),
+
+  vacancyUnderstandings: defineTable({
+    ownerToken: v.string(),
+    profileId: v.id("candidateProfiles"),
+    vacancyText: v.string(),
+    companyName: v.union(v.string(), v.null()),
+    companyHomepageUrl: v.union(v.string(), v.null()),
+    companyConfidence: v.number(),
+    title: v.union(v.string(), v.null()),
+    titleConfidence: v.number(),
+    language: v.union(v.string(), v.null()),
+    languageConfidence: v.number(),
+    coverLetterAddressee: v.union(v.string(), v.null()),
+    status: v.union(
+      v.literal("processing"),
+      v.literal("needs_homepage"),
+      v.literal("asking_questions"),
+      v.literal("ready"),
+      v.literal("failed"),
+    ),
+    error: v.union(v.string(), v.null()),
+    slug: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_ownerToken", ["ownerToken"])
+    .index("by_ownerToken_and_slug", ["ownerToken", "slug"]),
+
+  vacancyResearchSummaries: defineTable({
+    vacancyUnderstandingId: v.id("vacancyUnderstandings"),
+    ownerToken: v.string(),
+    sourceType: v.union(
+      v.literal("homepage"),
+      v.literal("about"),
+      v.literal("team"),
+      v.literal("wikipedia"),
+      v.literal("fallback"),
+    ),
+    sourceTitle: v.string(),
+    sourceUrl: v.string(),
+    summary: v.string(),
+    confidence: v.number(),
+    retrievedAt: v.number(),
+  }).index("by_vacancyUnderstandingId", ["vacancyUnderstandingId"]),
+
+  vacancyRequiredSkills: defineTable({
+    vacancyUnderstandingId: v.id("vacancyUnderstandings"),
+    ownerToken: v.string(),
+    kind: v.union(v.literal("soft"), v.literal("hard")),
+    name: v.string(),
+    evidence: v.union(v.string(), v.null()),
+    matchStatus: v.union(
+      v.literal("matched"),
+      v.literal("missing"),
+      v.literal("uncertain"),
+    ),
+    matchedCandidateSkillIds: v.array(v.id("skills")),
+    sortOrder: v.number(),
+  }).index("by_vacancyUnderstandingId", ["vacancyUnderstandingId"]),
+
+  vacancyQuestions: defineTable({
+    vacancyUnderstandingId: v.id("vacancyUnderstandings"),
+    ownerToken: v.string(),
+    prompt: v.string(),
+    shortPrompt: v.string(),
+    reason: v.string(),
+    required: v.boolean(),
+    answeredAt: v.union(v.number(), v.null()),
+    answer: v.union(v.string(), v.null()),
+    sortOrder: v.number(),
+  }).index("by_vacancyUnderstandingId", ["vacancyUnderstandingId"]),
 });
