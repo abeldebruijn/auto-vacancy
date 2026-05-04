@@ -16,6 +16,10 @@ _Avoid_: Job, opening, listing
 The reusable source of truth for a Job Seeker's experience, skills, education, and facts.
 _Avoid_: Base CV, resume, profile
 
+**Experience Story**:
+A project-specific STAR story attached to an Experience in the Candidate Profile.
+_Avoid_: Project, evidence story
+
 **Imported CV**:
 Source material uploaded by a Job Seeker and used to extract Candidate Profile facts.
 _Avoid_: CV, generated CV
@@ -39,6 +43,7 @@ _Avoid_: Motivation letter
 ## Relationships
 
 - A **Job Seeker** owns one or more **Candidate Profiles**.
+- A **Candidate Profile** contains Experiences, and an Experience may contain one or more **Experience Stories**.
 - An **Imported CV** may be used to create a **Candidate Profile** when none exists.
 - An **Imported CV** produces a **Replacement Preview** when applying it would replace an existing **Candidate Profile**.
 - A **Replacement Preview** becomes the **Candidate Profile** only after Job Seeker approval.

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import { Authenticated, Unauthenticated, useAction, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
-import { FileText, Sparkles } from "lucide-react";
+import { FileText } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { isMarkdownCvFile } from "@/lib/candidate-profile";
 import { Button } from "@/components/ui/button";
