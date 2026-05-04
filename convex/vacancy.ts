@@ -143,7 +143,10 @@ function vacancyReviewPath(slug: string, id: Id<"vacancyUnderstandings">) {
 function cleanDetailAnswer(value: string) {
   return value
     .trim()
-    .replace(/^(?:the\s+)?(?:company|employer|organisation|organization|addressee|title)\s*(?:is|:)\s*/i, "")
+    .replace(
+      /^(?:the\s+)?(?:company|employer|organisation|organization|addressee|title)\s*(?:is|:)\s*/i,
+      "",
+    )
     .replace(/\s+/g, " ")
     .replace(/[.。]+$/g, "")
     .trim();

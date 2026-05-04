@@ -481,85 +481,85 @@ async function runAnalysis(
     throw new Error("Vacancy Understanding not found");
   }
   try {
-      const candidateSummary = [
-        `Skills: ${profileData.skills.map((skill) => `${skill.name} (${skill.kind})`).join(", ")}`,
-        `Experiences: ${profileData.experiences.map((experience) => experience.employer).join(", ")}`,
-        `Hobbies: ${profileData.hobbies.map((hobby) => hobby.title).join(", ")}`,
-      ].join("\n");
-      const { output } = await generateText({
-        model: modelId(),
-        maxRetries: 1,
-        timeout: { totalMs: 90000 },
-        output: Output.object({
-          schema: vacancyAnalysisSchema,
-          name: "vacancy_understanding",
-          description: "Structured Vacancy facts, requirements, and relevant Job Seeker questions.",
-        }),
-        system:
-          "Analyze a Vacancy for a Job Seeker preparing a tailored CV and Cover Letter. Extract only supported company, title, language, addressee, hard skills, soft skills, and relevant clarification questions. Assume output language is the Vacancy language. Ask about hobbies only if they could be relevant. Ask about title or language only when ambiguous. Do not ask broad generic questions.",
-        prompt: `Candidate Profile summary:\n${candidateSummary}\n\nVacancy text:\n${detail.vacancy.vacancyText}`,
-      });
+    const candidateSummary = [
+      `Skills: ${profileData.skills.map((skill) => `${skill.name} (${skill.kind})`).join(", ")}`,
+      `Experiences: ${profileData.experiences.map((experience) => experience.employer).join(", ")}`,
+      `Hobbies: ${profileData.hobbies.map((hobby) => hobby.title).join(", ")}`,
+    ].join("\n");
+    const { output } = await generateText({
+      model: modelId(),
+      maxRetries: 1,
+      timeout: { totalMs: 90000 },
+      output: Output.object({
+        schema: vacancyAnalysisSchema,
+        name: "vacancy_understanding",
+        description: "Structured Vacancy facts, requirements, and relevant Job Seeker questions.",
+      }),
+      system:
+        "Analyze a Vacancy for a Job Seeker preparing a tailored CV and Cover Letter. Extract only supported company, title, language, addressee, hard skills, soft skills, and relevant clarification questions. Assume output language is the Vacancy language. Ask about hobbies only if they could be relevant. Ask about title or language only when ambiguous. Do not ask broad generic questions.",
+      prompt: `Candidate Profile summary:\n${candidateSummary}\n\nVacancy text:\n${detail.vacancy.vacancyText}`,
+    });
 
-      const homepageUrl =
-        normalizeUrl(detail.vacancy.companyHomepageUrl) ?? normalizeUrl(output.companyHomepageUrl);
-      const needsHomepage = companyNeedsHomepage(output) && homepageUrl === null;
-      const matchedSkills = matchSkills(output.requiredSkills, profileData);
-      const questions = [...output.questions, ...missingSkillQuestions(matchedSkills)].slice(0, 24);
-      const companyName = output.companyName;
-      const researchSummaries =
-        companyName !== null && !needsHomepage
-          ? await buildResearchSummaries(companyName, homepageUrl)
-          : [];
-      await ctx.runMutation(internal.vacancy.finishAnalysis, {
-        vacancyUnderstandingId: args.vacancyUnderstandingId,
-        ownerToken: args.ownerToken,
-        companyName,
-        companyHomepageUrl: homepageUrl,
-        companyConfidence: output.companyConfidence,
-        title: output.title,
-        titleConfidence: output.titleConfidence,
-        language: output.language,
-        languageConfidence: output.languageConfidence,
-        coverLetterAddressee: output.coverLetterAddressee,
-        status: needsHomepage
-          ? "needs_homepage"
-          : questions.some((question) => question.required)
-            ? "asking_questions"
-            : "asking_questions",
-        error: null,
-        researchSummaries,
-        requiredSkills: matchedSkills,
-        questions,
-      });
-      return null;
+    const homepageUrl =
+      normalizeUrl(detail.vacancy.companyHomepageUrl) ?? normalizeUrl(output.companyHomepageUrl);
+    const needsHomepage = companyNeedsHomepage(output) && homepageUrl === null;
+    const matchedSkills = matchSkills(output.requiredSkills, profileData);
+    const questions = [...output.questions, ...missingSkillQuestions(matchedSkills)].slice(0, 24);
+    const companyName = output.companyName;
+    const researchSummaries =
+      companyName !== null && !needsHomepage
+        ? await buildResearchSummaries(companyName, homepageUrl)
+        : [];
+    await ctx.runMutation(internal.vacancy.finishAnalysis, {
+      vacancyUnderstandingId: args.vacancyUnderstandingId,
+      ownerToken: args.ownerToken,
+      companyName,
+      companyHomepageUrl: homepageUrl,
+      companyConfidence: output.companyConfidence,
+      title: output.title,
+      titleConfidence: output.titleConfidence,
+      language: output.language,
+      languageConfidence: output.languageConfidence,
+      coverLetterAddressee: output.coverLetterAddressee,
+      status: needsHomepage
+        ? "needs_homepage"
+        : questions.some((question) => question.required)
+          ? "asking_questions"
+          : "asking_questions",
+      error: null,
+      researchSummaries,
+      requiredSkills: matchedSkills,
+      questions,
+    });
+    return null;
   } catch (error) {
-      const message = error instanceof Error ? error.message : "Vacancy analysis failed";
-      const readableError = message.includes("Configure AI_GATEWAY_API_KEY")
-        ? "AI Gateway is not configured for Convex. Set AI_GATEWAY_API_KEY in Convex environment variables and try again."
-        : message;
-      const fallback = timeoutFallback({
-        vacancyText: detail.vacancy.vacancyText,
-        existingHomepageUrl: normalizeUrl(detail.vacancy.companyHomepageUrl),
-        errorMessage: readableError,
-      });
-      await ctx.runMutation(internal.vacancy.finishAnalysis, {
-        vacancyUnderstandingId: args.vacancyUnderstandingId,
-        ownerToken: args.ownerToken,
-        companyName: fallback.companyName,
-        companyHomepageUrl: fallback.companyHomepageUrl,
-        companyConfidence: fallback.companyConfidence,
-        title: fallback.title,
-        titleConfidence: fallback.titleConfidence,
-        language: fallback.language,
-        languageConfidence: fallback.languageConfidence,
-        coverLetterAddressee: fallback.coverLetterAddressee,
-        status: fallback.status,
-        error: fallback.error,
-        researchSummaries: fallback.researchSummaries,
-        requiredSkills: fallback.requiredSkills,
-        questions: fallback.questions,
-      });
-      return null;
+    const message = error instanceof Error ? error.message : "Vacancy analysis failed";
+    const readableError = message.includes("Configure AI_GATEWAY_API_KEY")
+      ? "AI Gateway is not configured for Convex. Set AI_GATEWAY_API_KEY in Convex environment variables and try again."
+      : message;
+    const fallback = timeoutFallback({
+      vacancyText: detail.vacancy.vacancyText,
+      existingHomepageUrl: normalizeUrl(detail.vacancy.companyHomepageUrl),
+      errorMessage: readableError,
+    });
+    await ctx.runMutation(internal.vacancy.finishAnalysis, {
+      vacancyUnderstandingId: args.vacancyUnderstandingId,
+      ownerToken: args.ownerToken,
+      companyName: fallback.companyName,
+      companyHomepageUrl: fallback.companyHomepageUrl,
+      companyConfidence: fallback.companyConfidence,
+      title: fallback.title,
+      titleConfidence: fallback.titleConfidence,
+      language: fallback.language,
+      languageConfidence: fallback.languageConfidence,
+      coverLetterAddressee: fallback.coverLetterAddressee,
+      status: fallback.status,
+      error: fallback.error,
+      researchSummaries: fallback.researchSummaries,
+      requiredSkills: fallback.requiredSkills,
+      questions: fallback.questions,
+    });
+    return null;
   }
 }
 
