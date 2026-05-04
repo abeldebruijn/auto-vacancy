@@ -218,11 +218,16 @@ export const getBySlugId = query({
   returns: v.union(vacancyDetailOutputValidator, v.null()),
   handler: async (ctx, args) => {
     const ownerToken = await requireOwnerToken(ctx);
-    const idPart = args.slugId.split("-").at(-1);
-    if (idPart === undefined) return null;
-    const vacancyUnderstandingId = idPart as Id<"vacancyUnderstandings">;
-    const vacancy = await ctx.db.get(vacancyUnderstandingId);
-    if (vacancy === null || vacancy.ownerToken !== ownerToken) {
+    const vacancies = await ctx.db
+      .query("vacancyUnderstandings")
+      .withIndex("by_ownerToken", (q) => q.eq("ownerToken", ownerToken))
+      .collect();
+    const vacancy =
+      vacancies.find(
+        (candidate) =>
+          args.slugId === candidate._id || args.slugId === `${candidate.slug}-${candidate._id}`,
+      ) ?? null;
+    if (vacancy === null) {
       return null;
     }
     const researchSummaries = await ctx.db
