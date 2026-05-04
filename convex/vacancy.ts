@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import {
@@ -95,7 +95,7 @@ async function getOwnedProfile(ctx: QueryCtx | MutationCtx, ownerToken: string) 
   return await ctx.db
     .query("candidateProfiles")
     .withIndex("by_ownerToken", (q) => q.eq("ownerToken", ownerToken))
-    .unique();
+    .first();
 }
 
 async function getOwnedVacancy(
@@ -283,6 +283,9 @@ export const understandsVacancy = mutation({
   handler: async (ctx, args) => {
     const ownerToken = await requireOwnerToken(ctx);
     const vacancy = await getOwnedVacancy(ctx, args.vacancyUnderstandingId, ownerToken);
+    if (vacancy.status === "failed") {
+      throw new Error("Vacancy Understanding analysis failed");
+    }
     if (vacancy.status === "needs_homepage" || vacancy.status === "processing") {
       throw new Error("Vacancy Understanding is not ready yet");
     }
@@ -302,7 +305,7 @@ export const understandsVacancy = mutation({
   },
 });
 
-export const finishAnalysis = mutation({
+export const finishAnalysis = internalMutation({
   args: {
     vacancyUnderstandingId: v.id("vacancyUnderstandings"),
     companyName: v.union(v.string(), v.null()),

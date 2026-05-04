@@ -45,7 +45,6 @@ function HomeWorkspace() {
   const vacancies = useQuery(api.vacancy.list);
   const importMarkdown = useAction(api.importedCv.importMarkdown);
   const createVacancy = useMutation(api.vacancy.create);
-  const analyzeVacancy = useAction(api.vacancyAgents.analyze);
   const [pastedMarkdown, setPastedMarkdown] = useState("");
   const [vacancyText, setVacancyText] = useState("");
   const [status, setStatus] = useState<string | null>(null);
@@ -93,7 +92,6 @@ function HomeWorkspace() {
     try {
       const vacancyUnderstandingId = await createVacancy({ vacancyText: trimmed });
       router.push(`/specify-vacancy/${vacancyUnderstandingId}`);
-      void analyzeVacancy({ vacancyUnderstandingId });
     } catch (error) {
       setVacancyStatus(error instanceof Error ? error.message : "Could not create Vacancy.");
     }
