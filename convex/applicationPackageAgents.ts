@@ -103,7 +103,10 @@ function topSkills(values: string[]) {
   return values
     .map(clean)
     .filter(Boolean)
-    .filter((skill, index, all) => all.findIndex((item) => item.toLowerCase() === skill.toLowerCase()) === index)
+    .filter(
+      (skill, index, all) =>
+        all.findIndex((item) => item.toLowerCase() === skill.toLowerCase()) === index,
+    )
     .slice(0, MAX_CV_SKILLS);
 }
 
