@@ -1,6 +1,6 @@
 "use node";
 
-import PDFDocument from "pdfkit";
+import PDFDocument from "pdfkit/js/pdfkit.standalone";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 import { v } from "convex/values";
@@ -10,9 +10,11 @@ import { api, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { cvDraftSnapshotValidator } from "./applicationPackageModel";
 
+const MAX_CV_SKILLS = 7;
+
 const cvDraftAiSchema = z.object({
   summary: z.string(),
-  skills: z.array(z.string()).max(18),
+  skills: z.array(z.string()).max(MAX_CV_SKILLS),
   experience: z
     .array(
       z.object({
@@ -125,7 +127,7 @@ function buildFallbackDraft(
     .map(clean)
     .filter(Boolean)
     .filter((skill, index, all) => all.indexOf(skill) === index)
-    .slice(0, 14);
+    .slice(0, MAX_CV_SKILLS);
 
   return {
     name: profileData.profile.name,
@@ -191,7 +193,7 @@ function applyAiDraft(
   return {
     ...base,
     summary: aiDraft.summary,
-    skills: aiDraft.skills,
+    skills: aiDraft.skills.map(clean).filter(Boolean).slice(0, MAX_CV_SKILLS),
     experience: aiDraft.experience.map((experience) => ({
       sourceExperienceId: coerceExperienceId(experience.sourceExperienceId, profileData),
       company: experience.company,
@@ -249,7 +251,7 @@ async function buildAiDraft(
       description: "Vacancy-specific CV Draft content for a Job Seeker.",
     }),
     system:
-      "Create a concise, truthful CV Draft from the Candidate Profile and Vacancy Understanding. Use only supported facts. Select the most relevant skills, experiences, and education. Keep bullets concrete and suitable for a CV. Preserve the Vacancy language when possible. Return source ids when selecting existing profile entries.",
+      "Create a concise, truthful CV Draft from the Candidate Profile and Vacancy Understanding. Use only supported facts. Select exactly the most relevant skills, up to 7 total. Select the most relevant experiences and education. Write each experience as one compact story paragraph, returned as a single bullets item for compatibility. Preserve the Vacancy language when possible. Return source ids when selecting existing profile entries.",
     prompt: `Candidate Profile:\n${profileContext}\n\nVacancy Understanding:\n${vacancyContext}`,
   });
   return applyAiDraft(fallback, output, profileData);
@@ -366,7 +368,9 @@ async function renderCvPdf(snapshot: CvDraftSnapshot) {
 
   doc.fillColor(snapshot.accent).fontSize(22).text(snapshot.name);
   doc.fillColor("#111827").fontSize(12).text(`${snapshot.role} · ${snapshot.company}`);
-  const contact = [snapshot.email, snapshot.location, ...snapshot.links].filter(Boolean).join(" · ");
+  const contact = [snapshot.email, snapshot.location, ...snapshot.links]
+    .filter(Boolean)
+    .join(" · ");
   if (contact !== "") {
     doc.fillColor("#4b5563").fontSize(9).text(contact);
   }
@@ -385,9 +389,12 @@ async function renderCvPdf(snapshot: CvDraftSnapshot) {
       doc
         .fillColor("#111827")
         .fontSize(11)
-        .text(`${experience.role} @ ${experience.company}${experience.period ? ` (${experience.period})` : ""}`);
-      for (const bullet of experience.bullets) {
-        doc.fillColor("#374151").fontSize(9).text(`• ${bullet}`, { indent: 8, lineGap: 2 });
+        .text(
+          `${experience.role} @ ${experience.company}${experience.period ? ` (${experience.period})` : ""}`,
+        );
+      const story = experience.bullets.map(clean).filter(Boolean).join(" ");
+      if (story !== "") {
+        doc.fillColor("#374151").fontSize(9).text(story, { lineGap: 2 });
       }
       doc.moveDown(0.5);
     }
@@ -399,7 +406,9 @@ async function renderCvPdf(snapshot: CvDraftSnapshot) {
       doc
         .fillColor("#111827")
         .fontSize(11)
-        .text(`${education.degree} - ${education.school}${education.period ? ` (${education.period})` : ""}`);
+        .text(
+          `${education.degree} - ${education.school}${education.period ? ` (${education.period})` : ""}`,
+        );
       for (const detail of education.details) {
         doc.fillColor("#374151").fontSize(9).text(`• ${detail}`, { indent: 8, lineGap: 2 });
       }

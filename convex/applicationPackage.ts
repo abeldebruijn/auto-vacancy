@@ -91,9 +91,7 @@ async function getDraftByPackage(
 ) {
   return await ctx.db
     .query("cvDrafts")
-    .withIndex("by_applicationPackageId", (q) =>
-      q.eq("applicationPackageId", applicationPackageId),
-    )
+    .withIndex("by_applicationPackageId", (q) => q.eq("applicationPackageId", applicationPackageId))
     .unique();
 }
 
@@ -266,6 +264,10 @@ function cleanList(values: string[]) {
   return values.map(clean).filter(Boolean);
 }
 
+function cleanParagraph(values: string[]) {
+  return cleanList(values).join(" ");
+}
+
 function normalizeSnapshot(snapshot: typeof cvDraftSnapshotValidator.type) {
   return {
     ...snapshot,
@@ -278,13 +280,14 @@ function normalizeSnapshot(snapshot: typeof cvDraftSnapshotValidator.type) {
     role: clean(snapshot.role) || "Vacancy",
     accent: clean(snapshot.accent) || "#2563eb",
     summary: snapshot.summary.trim(),
-    skills: cleanList(snapshot.skills),
+    skills: cleanList(snapshot.skills).slice(0, 7),
     experience: snapshot.experience.map((experience) => ({
       ...experience,
       company: clean(experience.company) || "Untitled experience",
       role: clean(experience.role) || "Experience",
       period: clean(experience.period),
-      bullets: cleanList(experience.bullets),
+      bullets:
+        cleanParagraph(experience.bullets) === "" ? [] : [cleanParagraph(experience.bullets)],
     })),
     education: snapshot.education.map((education) => ({
       ...education,

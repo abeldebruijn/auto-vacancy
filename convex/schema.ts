@@ -187,10 +187,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_ownerToken", ["ownerToken"])
-    .index("by_ownerToken_and_vacancyUnderstandingId", [
-      "ownerToken",
-      "vacancyUnderstandingId",
-    ]),
+    .index("by_ownerToken_and_vacancyUnderstandingId", ["ownerToken", "vacancyUnderstandingId"]),
 
   cvDrafts: defineTable({
     ownerToken: v.string(),
@@ -203,10 +200,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_applicationPackageId", ["applicationPackageId"])
-    .index("by_ownerToken_and_vacancyUnderstandingId", [
-      "ownerToken",
-      "vacancyUnderstandingId",
-    ]),
+    .index("by_ownerToken_and_vacancyUnderstandingId", ["ownerToken", "vacancyUnderstandingId"]),
 
   cvPdfVersions: defineTable({
     ownerToken: v.string(),
@@ -221,8 +215,5 @@ export default defineSchema({
     generatedAt: v.number(),
   })
     .index("by_applicationPackageId", ["applicationPackageId"])
-    .index("by_ownerToken_and_vacancyUnderstandingId", [
-      "ownerToken",
-      "vacancyUnderstandingId",
-    ]),
+    .index("by_ownerToken_and_vacancyUnderstandingId", ["ownerToken", "vacancyUnderstandingId"]),
 });

@@ -158,7 +158,11 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
   }
 
   async function persistCvDraft() {
-    if (packageDetail?.cvDraft === null || packageDetail?.cvDraft === undefined || cvDraft === null) {
+    if (
+      packageDetail?.cvDraft === null ||
+      packageDetail?.cvDraft === undefined ||
+      cvDraft === null
+    ) {
       return;
     }
     setCvStatus("Saving CV Draft...");
@@ -455,7 +459,9 @@ function CvDraftWorkspace({
           <FileText className="size-4" />
           Generate CV Draft
         </Button>
-        {status !== null ? <p className="basis-full text-sm text-muted-foreground">{status}</p> : null}
+        {status !== null ? (
+          <p className="basis-full text-sm text-muted-foreground">{status}</p>
+        ) : null}
       </div>
     );
   }
@@ -483,18 +489,32 @@ function CvDraftWorkspace({
             Generate PDF
           </Button>
         </div>
-        {status !== null ? <p className="basis-full text-sm text-muted-foreground">{status}</p> : null}
+        {status !== null ? (
+          <p className="basis-full text-sm text-muted-foreground">{status}</p>
+        ) : null}
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        <CvField label="Name" value={draft.name} onChange={(name) => onChange({ ...draft, name })} />
-        <CvField label="Title" value={draft.title} onChange={(title) => onChange({ ...draft, title })} />
+        <CvField
+          label="Name"
+          value={draft.name}
+          onChange={(name) => onChange({ ...draft, name })}
+        />
+        <CvField
+          label="Title"
+          value={draft.title}
+          onChange={(title) => onChange({ ...draft, title })}
+        />
         <CvField
           label="Company"
           value={draft.company}
           onChange={(company) => onChange({ ...draft, company })}
         />
-        <CvField label="Role" value={draft.role} onChange={(role) => onChange({ ...draft, role })} />
+        <CvField
+          label="Role"
+          value={draft.role}
+          onChange={(role) => onChange({ ...draft, role })}
+        />
         <CvField
           label="Email"
           value={draft.email ?? ""}
@@ -539,6 +559,7 @@ function CvDraftWorkspace({
       <StringListEditor
         label="Skills"
         values={draft.skills}
+        maxItems={7}
         onChange={(skills) => onChange({ ...draft, skills })}
       />
       <ExperienceDraftEditor draft={draft} onChange={onChange} />
@@ -623,22 +644,34 @@ function CvSelect({
 function StringListEditor({
   label,
   values,
+  maxItems,
   onChange,
 }: {
   label: string;
   values: string[];
+  maxItems?: number;
   onChange: (values: string[]) => void;
 }) {
+  const canAdd = maxItems === undefined || values.length < maxItems;
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
+      <div className="flex items-center justify-between gap-2">
+        <Label>{label}</Label>
+        {maxItems !== undefined ? (
+          <span className="text-xs text-muted-foreground">
+            {values.length}/{maxItems}
+          </span>
+        ) : null}
+      </div>
       {values.map((value, index) => (
         <div key={index} className="flex gap-2">
           <Input
             className="min-w-0 flex-1"
             value={value}
             onChange={(event) =>
-              onChange(values.map((item, itemIndex) => (itemIndex === index ? event.target.value : item)))
+              onChange(
+                values.map((item, itemIndex) => (itemIndex === index ? event.target.value : item)),
+              )
             }
           />
           <Button
@@ -652,7 +685,13 @@ function StringListEditor({
           </Button>
         </div>
       ))}
-      <Button type="button" size="sm" variant="outline" onClick={() => onChange([...values, ""])}>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={!canAdd}
+        onClick={() => onChange([...values, ""])}
+      >
         <Plus className="size-3.5" />
         Add
       </Button>
@@ -724,7 +763,9 @@ function ExperienceDraftEditor({
             <CvField
               label="Role"
               value={experience.role}
-              onChange={(role) => replaceExperience(draft, index, { ...experience, role }, onChange)}
+              onChange={(role) =>
+                replaceExperience(draft, index, { ...experience, role }, onChange)
+              }
             />
             <CvField
               label="Period"
@@ -734,11 +775,11 @@ function ExperienceDraftEditor({
               }
             />
           </div>
-          <StringListEditor
-            label="Bullets"
-            values={experience.bullets}
-            onChange={(bullets) =>
-              replaceExperience(draft, index, { ...experience, bullets }, onChange)
+          <CvTextArea
+            label="Story"
+            value={experience.bullets.join(" ")}
+            onChange={(story) =>
+              replaceExperience(draft, index, { ...experience, bullets: [story] }, onChange)
             }
           />
         </div>

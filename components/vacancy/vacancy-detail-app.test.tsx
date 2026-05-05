@@ -43,7 +43,8 @@ vi.mock("convex/react", () => ({
   Authenticated: ({ children }: { children: ReactNode }) => children,
   Unauthenticated: () => null,
   useAction: (actionName: string) => {
-    if (actionName === apiMock.applicationPackageAgents.generateCvDraft) return mocks.generateCvDraft;
+    if (actionName === apiMock.applicationPackageAgents.generateCvDraft)
+      return mocks.generateCvDraft;
     if (actionName === apiMock.applicationPackageAgents.regenerateCvDraft) {
       return mocks.regenerateCvDraft;
     }
