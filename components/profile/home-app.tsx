@@ -4,7 +4,7 @@ import { useState } from "react";
 import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import { Authenticated, Unauthenticated, useAction, useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, FileText } from "lucide-react";
+import { ArrowRight, FileText, Upload } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import { isMarkdownCvFile } from "@/lib/candidate-profile";
 import type { Doc } from "@/convex/_generated/dataModel";
@@ -51,6 +51,7 @@ function HomeWorkspace() {
   const [vacancyText, setVacancyText] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [vacancyStatus, setVacancyStatus] = useState<string | null>(null);
+  const [isConvertingVacancySource, setIsConvertingVacancySource] = useState(false);
 
   async function handleImportMarkdown(filename: string, markdown: string) {
     if (markdown.trim() === "") {
@@ -75,12 +76,37 @@ function HomeWorkspace() {
   }
 
   async function handleImport(file: File) {
-    if (!isMarkdownCvFile(file.name)) {
-      setStatus("Upload a .md file.");
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+
+    if (!isMarkdownCvFile(file.name) && !isPdf) {
+      setStatus("Upload a .md or PDF file.");
       return;
     }
 
-    await handleImportMarkdown(file.name, await file.text());
+    if (!isPdf) {
+      await handleImportMarkdown(file.name, await file.text());
+      return;
+    }
+
+    setStatus("Converting Imported CV...");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/imported-cv/markdown", {
+        method: "POST",
+        body: formData,
+      });
+      const result = (await response.json()) as { markdown?: string; error?: string };
+
+      if (!response.ok || typeof result.markdown !== "string") {
+        throw new Error(result.error ?? "Could not convert Imported CV.");
+      }
+
+      await handleImportMarkdown("uploaded-cv.md", result.markdown);
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not convert Imported CV.");
+    }
   }
 
   async function handleVacancySubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -96,6 +122,46 @@ function HomeWorkspace() {
       router.push(`/specify-vacancy/${vacancyUnderstandingId}`);
     } catch (error) {
       setVacancyStatus(error instanceof Error ? error.message : "Could not create Vacancy.");
+    }
+  }
+
+  async function handleVacancySourceUpload(file: File) {
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      setVacancyStatus("Upload a PDF Vacancy Source.");
+      return;
+    }
+
+    if (
+      vacancyText.trim() !== "" &&
+      !window.confirm("Replace the current Vacancy description with text from this PDF?")
+    ) {
+      return;
+    }
+
+    setIsConvertingVacancySource(true);
+    setVacancyStatus("Converting Vacancy Source...");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/vacancy-source/markdown", {
+        method: "POST",
+        body: formData,
+      });
+      const result = (await response.json()) as { markdown?: string; error?: string };
+
+      if (!response.ok || typeof result.markdown !== "string") {
+        throw new Error(result.error ?? "Could not convert Vacancy Source.");
+      }
+
+      setVacancyText(result.markdown);
+      setVacancyStatus("Vacancy Source converted. Review before continuing.");
+    } catch (error) {
+      setVacancyStatus(
+        error instanceof Error ? error.message : "Could not convert Vacancy Source.",
+      );
+    } finally {
+      setIsConvertingVacancySource(false);
     }
   }
 
@@ -142,6 +208,31 @@ function HomeWorkspace() {
                 className="max-h-[28rem] min-h-64 resize-y overflow-y-auto"
                 placeholder="Paste the full Vacancy text here..."
               />
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isConvertingVacancySource}
+                onClick={() => document.getElementById("vacancy-source-pdf")?.click()}
+              >
+                <Upload className="size-4" />
+                Upload PDF
+              </Button>
+              <input
+                id="vacancy-source-pdf"
+                className="sr-only"
+                type="file"
+                accept="application/pdf,.pdf"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.currentTarget.value = "";
+                  if (file) void handleVacancySourceUpload(file);
+                }}
+              />
+              <p className="text-sm text-muted-foreground">
+                Convert a PDF Vacancy Source to markdown before starting.
+              </p>
             </div>
             {vacancyStatus ? (
               <p className="text-sm text-muted-foreground">{vacancyStatus}</p>

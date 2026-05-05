@@ -12,6 +12,10 @@ _Avoid_: User, candidate
 An open job opportunity the Job Seeker wants to apply for.
 _Avoid_: Job, opening, listing
 
+**Vacancy Source**:
+Source material supplied by a Job Seeker to describe one Vacancy.
+_Avoid_: Imported Vacancy, Imported CV
+
 **Vacancy Understanding**:
 An intermediate interpretation of one Vacancy containing company identity, research, requirements, and Job Seeker answers before an Application Package exists.
 _Avoid_: Application draft, workflow run
@@ -59,6 +63,7 @@ _Avoid_: Motivation letter
 - An **Imported CV** may be used to create a **Candidate Profile** when none exists.
 - An **Imported CV** produces a **Replacement Preview** when applying it would replace an existing **Candidate Profile**.
 - A **Replacement Preview** becomes the **Candidate Profile** only after Job Seeker approval.
+- A **Vacancy Source** may be used to fill the **Vacancy** description before creating a **Vacancy Understanding**.
 - A **Job Seeker** creates one **Vacancy Understanding** from one **Vacancy** before preparing an **Application Package**.
 - A **Job Seeker** prepares one **Application Package** for a **Vacancy**.
 - An **Application Package** is derived from exactly one **Vacancy** and one **Candidate Profile**.
@@ -84,6 +89,7 @@ _Avoid_: Motivation letter
 - A **CV Draft** is editable generated content, not raw JSON exposed to the Job Seeker.
 - A **PDF Version** is immutable; edits happen by changing the **CV Draft** and generating another version.
 - An **Imported CV** is input source material, not the generated **CV**.
+- A **Vacancy Source** describes a **Vacancy**; an **Imported CV** describes the Job Seeker's reusable facts.
 - A **Replacement Preview** is not yet the **Candidate Profile**; it is a proposed replacement.
 - A **Vacancy Understanding** is not yet an **Application Package**; it captures research and clarifications before generated materials exist.
 - **Application Package** does not imply employer submission; submission is outside current scope.

@@ -43,6 +43,7 @@ describe("HomeApp", () => {
     mocks.push.mockReset();
     mocks.profileQueryResult = null;
     mocks.vacanciesQueryResult = [];
+    vi.unstubAllGlobals();
   });
 
   it("shows the start profile screen when there is no Candidate Profile", () => {
@@ -59,6 +60,85 @@ describe("HomeApp", () => {
 
     expect(screen.getByText(/add a vacancy/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/vacancy description/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /upload pdf/i })).toBeInTheDocument();
+  });
+
+  it("converts an uploaded Vacancy PDF Source into the Vacancy description", async () => {
+    mocks.profileQueryResult = { profile: { name: "Abel" } };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ markdown: "# Frontend Developer\n\nBuild React interfaces." }),
+      }),
+    );
+
+    render(<HomeApp />);
+
+    const file = new File(["%PDF-1.7"], "vacancy.pdf", { type: "application/pdf" });
+    const input = document.querySelector("#vacancy-source-pdf") as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/vacancy description/i)).toHaveValue(
+        "# Frontend Developer\n\nBuild React interfaces.",
+      ),
+    );
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/vacancy-source/markdown",
+      expect.objectContaining({ method: "POST", body: expect.any(FormData) }),
+    );
+  });
+
+  it("asks before replacing existing Vacancy text with uploaded PDF markdown", async () => {
+    mocks.profileQueryResult = { profile: { name: "Abel" } };
+    vi.stubGlobal("confirm", vi.fn().mockReturnValue(false));
+    vi.stubGlobal("fetch", vi.fn());
+
+    render(<HomeApp />);
+
+    fireEvent.input(screen.getByLabelText(/vacancy description/i), {
+      target: { value: "Existing Vacancy text that should stay in place." },
+    });
+    const file = new File(["%PDF-1.7"], "vacancy.pdf", { type: "application/pdf" });
+    const input = document.querySelector("#vacancy-source-pdf") as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(confirm).toHaveBeenCalledWith(
+      "Replace the current Vacancy description with text from this PDF?",
+    );
+    expect(fetch).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/vacancy description/i)).toHaveValue(
+      "Existing Vacancy text that should stay in place.",
+    );
+  });
+
+  it("keeps Vacancy text unchanged when PDF conversion fails", async () => {
+    mocks.profileQueryResult = { profile: { name: "Abel" } };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({ error: "Could not convert this PDF to markdown." }),
+      }),
+    );
+
+    render(<HomeApp />);
+
+    fireEvent.input(screen.getByLabelText(/vacancy description/i), {
+      target: { value: "Existing Vacancy text that should stay in place." },
+    });
+    vi.stubGlobal("confirm", vi.fn().mockReturnValue(true));
+    const file = new File(["%PDF-1.7"], "vacancy.pdf", { type: "application/pdf" });
+    const input = document.querySelector("#vacancy-source-pdf") as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() =>
+      expect(screen.getByText("Could not convert this PDF to markdown.")).toBeInTheDocument(),
+    );
+    expect(screen.getByLabelText(/vacancy description/i)).toHaveValue(
+      "Existing Vacancy text that should stay in place.",
+    );
   });
 
   it("lists existing Vacancy Understandings", () => {
@@ -135,5 +215,53 @@ describe("HomeApp", () => {
     fireEvent.click(screen.getByRole("button", { name: /extract profile from pasted cv/i }));
 
     await waitFor(() => expect(mocks.push).toHaveBeenCalledWith("/profile"));
+  });
+
+  it("converts an uploaded Candidate Profile PDF before importing markdown", async () => {
+    mocks.importMarkdown.mockResolvedValue({ status: "applied" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ markdown: "# Abel\n\n## Experience\n- Developer" }),
+      }),
+    );
+    render(<HomeApp />);
+
+    const file = new File(["%PDF-1.7"], "private-cv.pdf", { type: "application/pdf" });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() =>
+      expect(mocks.importMarkdown).toHaveBeenCalledWith({
+        filename: "uploaded-cv.md",
+        markdown: "# Abel\n\n## Experience\n- Developer",
+      }),
+    );
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/imported-cv/markdown",
+      expect.objectContaining({ method: "POST", body: expect.any(FormData) }),
+    );
+    expect(mocks.push).toHaveBeenCalledWith("/profile");
+  });
+
+  it("shows Candidate Profile PDF conversion errors without importing markdown", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({ error: "Could not convert this PDF to markdown." }),
+      }),
+    );
+    render(<HomeApp />);
+
+    const file = new File(["%PDF-1.7"], "private-cv.pdf", { type: "application/pdf" });
+    const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() =>
+      expect(screen.getByText("Could not convert this PDF to markdown.")).toBeInTheDocument(),
+    );
+    expect(mocks.importMarkdown).not.toHaveBeenCalled();
   });
 });
