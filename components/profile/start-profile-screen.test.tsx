@@ -42,14 +42,14 @@ describe("StartProfileScreen", () => {
     expect(props.onPasteImport).toHaveBeenCalledOnce();
   });
 
-  it("uploads a selected .md CV file", async () => {
+  it("uploads a selected CV file", async () => {
     const { props } = renderStartProfileScreen();
     const file = new File(["# Abel"], "abel-cv.md", {
       type: "text/markdown",
     });
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
 
-    // expect(input).toHaveAttribute("accept", ".md");
+    expect(input).toHaveAttribute("accept", ".md,application/pdf,.pdf");
 
     fireEvent.change(input, { target: { files: [file] } });
 

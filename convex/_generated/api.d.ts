@@ -9,6 +9,7 @@
  */
 
 import type * as applicationPackage from "../applicationPackage.js";
+import type * as applicationPackageAgents from "../applicationPackageAgents.js";
 import type * as applicationPackageModel from "../applicationPackageModel.js";
 import type * as importedCv from "../importedCv.js";
 import type * as profile from "../profile.js";
@@ -25,6 +26,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   applicationPackage: typeof applicationPackage;
+  applicationPackageAgents: typeof applicationPackageAgents;
   applicationPackageModel: typeof applicationPackageModel;
   importedCv: typeof importedCv;
   profile: typeof profile;

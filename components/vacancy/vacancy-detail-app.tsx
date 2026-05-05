@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
+import { useEffect, useId, useState } from "react";
+import { Authenticated, Unauthenticated, useAction, useMutation, useQuery } from "convex/react";
 import { SignInButton } from "@clerk/nextjs";
 import {
   Archive,
@@ -9,9 +9,13 @@ import {
   Camera,
   Check,
   ChevronDown,
+  Download,
   ExternalLink,
   FileText,
   Plus,
+  RefreshCw,
+  Save,
+  Trash2,
   UserRound,
   X,
 } from "lucide-react";
@@ -20,7 +24,7 @@ import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { AppHeader } from "@/components/profile/app-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -32,7 +36,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -42,15 +45,30 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { statusLabel } from "@/components/vacancy/vacancy-utils";
 
 type Proficiency = "low" | "medium" | "high" | "expert";
 type RequiredSkill = Doc<"vacancyRequiredSkills">;
+type CvDraftSnapshot = Doc<"cvDrafts">["snapshot"];
 type PackagePictureOverride =
   | { kind: "inherit" }
   | { kind: "none" }
   | { kind: "url"; url: string }
   | { kind: "storage"; storageId: Id<"_storage"> };
+const MAX_CV_SKILLS = 7;
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message.trim() !== "" ? error.message : fallback;
+}
+
+function limitCvSkills(draft: CvDraftSnapshot): CvDraftSnapshot {
+  return {
+    ...draft,
+    skills: draft.skills.slice(0, MAX_CV_SKILLS),
+  };
+}
 
 export function VacancyDetailApp({ slugId }: { slugId: string }) {
   return (
@@ -79,45 +97,71 @@ export function VacancyDetailApp({ slugId }: { slugId: string }) {
 
 function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
   const detail = useQuery(api.vacancy.getBySlugId, { slugId });
-  const profileData = useQuery(api.profile.get);
-  const applicationPackage = useQuery(
+  const packageDetail = useQuery(
     api.applicationPackage.getByVacancy,
     detail === undefined || detail === null
       ? "skip"
       : { vacancyUnderstandingId: detail.vacancy._id },
   );
+  const profileData = useQuery(api.profile.get);
+  const setArchived = useMutation(api.vacancy.setArchived);
+  const addProfileSkill = useMutation(api.profile.addSkill);
   const getOrCreateApplicationPackage = useMutation(api.applicationPackage.getOrCreateForVacancy);
   const uploadPackagePictureUrl = useMutation(
     api.applicationPackage.generateProfilePictureUploadUrl,
   );
   const setPackagePictureOverride = useMutation(api.applicationPackage.setProfilePictureOverride);
-  const setArchived = useMutation(api.vacancy.setArchived);
-  const addProfileSkill = useMutation(api.profile.addSkill);
+  const saveCvDraft = useMutation(api.applicationPackage.saveCvDraft);
+  const generateCvDraft = useAction(api.applicationPackageAgents.generateCvDraft);
+  const regenerateCvDraft = useAction(api.applicationPackageAgents.regenerateCvDraft);
+  const generateCvPdfVersion = useAction(api.applicationPackageAgents.generateCvPdfVersion);
   const [skillDialog, setSkillDialog] = useState<RequiredSkill | null>(null);
   const [proficiency, setProficiency] = useState<Proficiency>("medium");
   const [experienceIds, setExperienceIds] = useState<Id<"experiences">[]>([]);
   const [storyIds, setStoryIds] = useState<Id<"experienceStories">[]>([]);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [cvDraft, setCvDraft] = useState<CvDraftSnapshot | null>(null);
+  const [cvDraftServerKey, setCvDraftServerKey] = useState<string | null>(null);
+  const [cvDraftDirty, setCvDraftDirty] = useState(false);
+  const [cvStatus, setCvStatus] = useState<string | null>(null);
+  const [cvActionPending, setCvActionPending] = useState(false);
   const [packageStatus, setPackageStatus] = useState<string | null>(null);
   const [packagePictureUrl, setPackagePictureUrl] = useState("");
-  const packageReady = applicationPackage !== undefined && applicationPackage !== null;
+  const packageReady = packageDetail !== undefined && packageDetail !== null;
+
+  useEffect(() => {
+    if (packageDetail === undefined) return;
+    if (packageDetail === null || packageDetail.cvDraft === null) {
+      setCvDraft(null);
+      setCvDraftServerKey(null);
+      setCvDraftDirty(false);
+      return;
+    }
+
+    const incomingKey = `${packageDetail.cvDraft._id}:${packageDetail.cvDraft.revision}`;
+    if (incomingKey !== cvDraftServerKey || !cvDraftDirty) {
+      setCvDraft(limitCvSkills(packageDetail.cvDraft.snapshot));
+      setCvDraftServerKey(incomingKey);
+      setCvDraftDirty(false);
+    }
+  }, [packageDetail, cvDraftDirty, cvDraftServerKey]);
 
   useEffect(() => {
     if (detail === undefined || detail === null) return;
-    if (applicationPackage !== null) return;
+    if (packageDetail !== null) return;
     void getOrCreateApplicationPackage({ vacancyUnderstandingId: detail.vacancy._id }).catch(() => {
       setPackageStatus("Failed to prepare Application Package.");
     });
-  }, [applicationPackage, detail, getOrCreateApplicationPackage]);
+  }, [detail, getOrCreateApplicationPackage, packageDetail]);
 
   useEffect(() => {
-    const override = applicationPackage?.applicationPackage.profilePictureOverride;
+    const override = packageDetail?.applicationPackage.profilePictureOverride;
     if (override?.kind === "url") {
       setPackagePictureUrl(override.url);
     } else if (override !== undefined) {
       setPackagePictureUrl("");
     }
-  }, [applicationPackage?.applicationPackage.profilePictureOverride]);
+  }, [packageDetail?.applicationPackage.profilePictureOverride]);
 
   const evidenceOptions =
     profileData === undefined || profileData === null
@@ -196,6 +240,84 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
     }
   }
 
+  async function createCvDraft() {
+    if (detail === undefined || detail === null || cvActionPending) return;
+    setCvActionPending(true);
+    setCvStatus("Generating CV Draft...");
+    try {
+      await generateCvDraft({ vacancyUnderstandingId: detail.vacancy._id });
+      setCvStatus("CV Draft generated.");
+    } catch (error) {
+      setCvStatus(errorMessage(error, "CV Draft generation failed."));
+    } finally {
+      setCvActionPending(false);
+    }
+  }
+
+  async function overwriteCvDraft() {
+    if (detail === undefined || detail === null || cvActionPending) return;
+    const confirmed = window.confirm("Regenerate the CV Draft? This overwrites your saved edits.");
+    if (!confirmed) return;
+    setCvActionPending(true);
+    setCvStatus("Regenerating CV Draft...");
+    try {
+      await regenerateCvDraft({ vacancyUnderstandingId: detail.vacancy._id });
+      setCvStatus("CV Draft regenerated.");
+    } catch (error) {
+      setCvStatus(errorMessage(error, "CV Draft regeneration failed."));
+    } finally {
+      setCvActionPending(false);
+    }
+  }
+
+  async function persistCvDraft() {
+    if (
+      packageDetail?.cvDraft === null ||
+      packageDetail?.cvDraft === undefined ||
+      cvDraft === null ||
+      cvActionPending
+    ) {
+      return;
+    }
+    setCvActionPending(true);
+    setCvStatus("Saving CV Draft...");
+    try {
+      await saveCvDraft({ cvDraftId: packageDetail.cvDraft._id, snapshot: cvDraft });
+      setCvStatus("CV Draft saved.");
+    } catch (error) {
+      setCvStatus(errorMessage(error, "CV Draft save failed."));
+    } finally {
+      setCvActionPending(false);
+    }
+  }
+
+  async function createPdfVersion() {
+    if (
+      packageDetail?.cvDraft === null ||
+      packageDetail?.cvDraft === undefined ||
+      cvDraft === null ||
+      cvActionPending
+    ) {
+      return;
+    }
+    setCvActionPending(true);
+    setCvStatus("Generating PDF...");
+    try {
+      await saveCvDraft({ cvDraftId: packageDetail.cvDraft._id, snapshot: cvDraft });
+      await generateCvPdfVersion({ cvDraftId: packageDetail.cvDraft._id });
+      setCvStatus("PDF Version generated.");
+    } catch (error) {
+      setCvStatus(errorMessage(error, "PDF generation failed."));
+    } finally {
+      setCvActionPending(false);
+    }
+  }
+
+  function updateCvDraft(nextDraft: CvDraftSnapshot) {
+    setCvDraft(limitCvSkills(nextDraft));
+    setCvDraftDirty(true);
+  }
+
   if (detail === undefined) {
     return (
       <main className="mx-auto max-w-6xl space-y-4 px-4 py-8">
@@ -263,106 +385,36 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <FileText className="size-4" />
+                <FileText className="size-5" />
                 Application Package
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <section className="space-y-3">
-                <div>
-                  <h2 className="font-medium">Profile Picture</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Use the Candidate Profile picture or set one just for this package.
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-start gap-4">
-                  <Avatar className="size-20 rounded-lg border border-neutral-200" size="lg">
-                    {applicationPackage?.pictureUrl ? (
-                      <AvatarImage
-                        className="rounded-lg object-cover"
-                        src={applicationPackage.pictureUrl}
-                        alt=""
-                      />
-                    ) : (
-                      <AvatarFallback className="rounded-lg bg-neutral-50">
-                        <UserRound className="size-7" />
-                      </AvatarFallback>
-                    )}
-                  </Avatar>
-                  <div className="min-w-0 flex-1 space-y-3">
-                    <div className="flex flex-wrap gap-2">
-                      <label className="text-sm">
-                        <span className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-neutral-200 bg-background px-3 text-sm font-medium hover:bg-muted">
-                          <Camera className="size-4" />
-                          Upload
-                        </span>
-                        <input
-                          className="sr-only"
-                          type="file"
-                          accept="image/*"
-                          disabled={!packageReady}
-                          onChange={(event) => {
-                            const file = event.target.files?.[0];
-                            if (file) void handlePackagePictureUpload(file);
-                            event.currentTarget.value = "";
-                          }}
-                        />
-                      </label>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={!packageReady}
-                        onClick={() =>
-                          void savePackagePictureOverride({
-                            kind: "inherit",
-                          })
-                        }
-                      >
-                        Use Candidate Profile
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={!packageReady}
-                        onClick={() => void savePackagePictureOverride({ kind: "none" })}
-                      >
-                        <X className="size-4" />
-                        Clear
-                      </Button>
-                    </div>
-                    <div className="flex gap-2">
-                      <Input
-                        aria-label="Package picture image URL"
-                        placeholder="Image URL"
-                        disabled={!packageReady}
-                        value={packagePictureUrl}
-                        onChange={(event) => setPackagePictureUrl(event.target.value)}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={!packageReady || packagePictureUrl.trim() === ""}
-                        onClick={() =>
-                          void savePackagePictureOverride({
-                            kind: "url",
-                            url: packagePictureUrl.trim(),
-                          })
-                        }
-                      >
-                        Save URL
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Current mode:{" "}
-                      {applicationPackage?.applicationPackage.profilePictureOverride.kind ??
-                        "preparing"}
-                    </p>
-                    {packageStatus !== null ? (
-                      <p className="text-sm text-muted-foreground">{packageStatus}</p>
-                    ) : null}
-                  </div>
-                </div>
-              </section>
+            <CardContent>
+              {packageDetail === undefined ? (
+                <Skeleton className="h-48 w-full" />
+              ) : (
+                <CvDraftWorkspace
+                  draft={cvDraft}
+                  pictureUrl={packageDetail?.pictureUrl ?? null}
+                  pictureMode={
+                    packageDetail?.applicationPackage.profilePictureOverride.kind ?? "preparing"
+                  }
+                  packageReady={packageReady}
+                  packageStatus={packageStatus}
+                  packagePictureUrl={packagePictureUrl}
+                  pdfVersions={packageDetail?.pdfVersions ?? []}
+                  status={cvStatus}
+                  pending={cvActionPending}
+                  onPackagePictureUrlChange={setPackagePictureUrl}
+                  onPackagePictureUpload={(file) => void handlePackagePictureUpload(file)}
+                  onPackagePictureOverride={(override) => void savePackagePictureOverride(override)}
+                  onGenerate={() => void createCvDraft()}
+                  onRegenerate={() => void overwriteCvDraft()}
+                  onSave={() => void persistCvDraft()}
+                  onGeneratePdf={() => void createPdfVersion()}
+                  onChange={updateCvDraft}
+                />
+              )}
             </CardContent>
           </Card>
 
@@ -524,6 +576,669 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
         </DialogContent>
       </Dialog>
     </main>
+  );
+}
+
+function CvDraftWorkspace({
+  draft,
+  pictureUrl,
+  pictureMode,
+  packageReady,
+  packageStatus,
+  packagePictureUrl,
+  pdfVersions,
+  status,
+  pending,
+  onPackagePictureUrlChange,
+  onPackagePictureUpload,
+  onPackagePictureOverride,
+  onGenerate,
+  onRegenerate,
+  onSave,
+  onGeneratePdf,
+  onChange,
+}: {
+  draft: CvDraftSnapshot | null;
+  pictureUrl: string | null;
+  pictureMode: PackagePictureOverride["kind"] | "preparing";
+  packageReady: boolean;
+  packageStatus: string | null;
+  packagePictureUrl: string;
+  pdfVersions: (Doc<"cvPdfVersions"> & { downloadUrl: string | null })[];
+  status: string | null;
+  pending: boolean;
+  onPackagePictureUrlChange: (value: string) => void;
+  onPackagePictureUpload: (file: File) => void;
+  onPackagePictureOverride: (override: PackagePictureOverride) => void;
+  onGenerate: () => void;
+  onRegenerate: () => void;
+  onSave: () => void;
+  onGeneratePdf: () => void;
+  onChange: (draft: CvDraftSnapshot) => void;
+}) {
+  const pictureControl = (
+    <ProfilePicturePackageControl
+      pictureUrl={pictureUrl}
+      pictureMode={pictureMode}
+      packageReady={packageReady}
+      packageStatus={packageStatus}
+      packagePictureUrl={packagePictureUrl}
+      onPackagePictureUrlChange={onPackagePictureUrlChange}
+      onPackagePictureUpload={onPackagePictureUpload}
+      onPackagePictureOverride={onPackagePictureOverride}
+    />
+  );
+
+  if (draft === null) {
+    return (
+      <div className="space-y-5">
+        {pictureControl}
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border bg-white p-4">
+          <div>
+            <h2 className="font-medium">No CV Draft yet</h2>
+            <p className="text-sm text-muted-foreground">
+              Generate an editable CV Draft from this Vacancy and your Candidate Profile.
+            </p>
+          </div>
+          <Button type="button" disabled={pending} onClick={onGenerate}>
+            <FileText className="size-4" />
+            Generate CV Draft
+          </Button>
+          {status !== null ? (
+            <p className="basis-full text-sm text-muted-foreground">{status}</p>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      {pictureControl}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="font-medium">CV Draft</h2>
+          <p className="text-sm text-muted-foreground">
+            Edit the structured draft, then generate a stored PDF Version.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" disabled={pending} onClick={onRegenerate}>
+            <RefreshCw className="size-4" />
+            Regenerate
+          </Button>
+          <Button type="button" variant="outline" disabled={pending} onClick={onSave}>
+            <Save className="size-4" />
+            Save
+          </Button>
+          <Button type="button" disabled={pending} onClick={onGeneratePdf}>
+            <Download className="size-4" />
+            Generate PDF
+          </Button>
+        </div>
+        {status !== null ? (
+          <p className="basis-full text-sm text-muted-foreground">{status}</p>
+        ) : null}
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <CvField
+          label="Name"
+          value={draft.name}
+          onChange={(name) => onChange({ ...draft, name })}
+        />
+        <CvField
+          label="Title"
+          value={draft.title}
+          onChange={(title) => onChange({ ...draft, title })}
+        />
+        <CvField
+          label="Company"
+          value={draft.company}
+          onChange={(company) => onChange({ ...draft, company })}
+        />
+        <CvField
+          label="Role"
+          value={draft.role}
+          onChange={(role) => onChange({ ...draft, role })}
+        />
+        <CvField
+          label="Email"
+          value={draft.email ?? ""}
+          onChange={(email) => onChange({ ...draft, email: email.trim() === "" ? null : email })}
+        />
+        <CvField
+          label="Location"
+          value={draft.location ?? ""}
+          onChange={(location) =>
+            onChange({ ...draft, location: location.trim() === "" ? null : location })
+          }
+        />
+        <CvSelect
+          label="Layout"
+          value={draft.layout}
+          options={["compact", "flexible"]}
+          onChange={(layout) => onChange({ ...draft, layout: layout as CvDraftSnapshot["layout"] })}
+        />
+        <CvSelect
+          label="Paper"
+          value={draft.paper}
+          options={["a4", "letter"]}
+          onChange={(paper) => onChange({ ...draft, paper: paper as CvDraftSnapshot["paper"] })}
+        />
+        <CvField
+          label="Accent"
+          value={draft.accent}
+          onChange={(accent) => onChange({ ...draft, accent })}
+        />
+      </div>
+
+      <CvTextArea
+        label="Summary"
+        value={draft.summary}
+        onChange={(summary) => onChange({ ...draft, summary })}
+      />
+      <StringListEditor
+        label="Links"
+        values={draft.links}
+        onChange={(links) => onChange({ ...draft, links })}
+      />
+      <StringListEditor
+        label="Skills"
+        values={draft.skills}
+        maxItems={MAX_CV_SKILLS}
+        onChange={(skills) => onChange({ ...draft, skills })}
+      />
+      <ExperienceDraftEditor draft={draft} onChange={onChange} />
+      <EducationDraftEditor draft={draft} onChange={onChange} />
+      <PdfVersionHistory versions={pdfVersions} />
+    </div>
+  );
+}
+
+function ProfilePicturePackageControl({
+  pictureUrl,
+  pictureMode,
+  packageReady,
+  packageStatus,
+  packagePictureUrl,
+  onPackagePictureUrlChange,
+  onPackagePictureUpload,
+  onPackagePictureOverride,
+}: {
+  pictureUrl: string | null;
+  pictureMode: PackagePictureOverride["kind"] | "preparing";
+  packageReady: boolean;
+  packageStatus: string | null;
+  packagePictureUrl: string;
+  onPackagePictureUrlChange: (value: string) => void;
+  onPackagePictureUpload: (file: File) => void;
+  onPackagePictureOverride: (override: PackagePictureOverride) => void;
+}) {
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="font-medium">Profile Picture</h2>
+        <p className="text-sm text-muted-foreground">
+          Use the Candidate Profile picture or set one just for this package.
+        </p>
+      </div>
+      <div className="flex flex-wrap items-start gap-4">
+        <Avatar className="size-20 rounded-lg border border-neutral-200" size="lg">
+          {pictureUrl !== null ? (
+            <AvatarImage className="rounded-lg object-cover" src={pictureUrl} alt="" />
+          ) : (
+            <AvatarFallback className="rounded-lg bg-neutral-50">
+              <UserRound className="size-7" />
+            </AvatarFallback>
+          )}
+        </Avatar>
+        <div className="min-w-0 flex-1 space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <label className="text-sm">
+              <span className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-neutral-200 bg-background px-3 text-sm font-medium hover:bg-muted">
+                <Camera className="size-4" />
+                Upload
+              </span>
+              <input
+                className="sr-only"
+                type="file"
+                accept="image/*"
+                disabled={!packageReady}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) onPackagePictureUpload(file);
+                  event.currentTarget.value = "";
+                }}
+              />
+            </label>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!packageReady}
+              onClick={() => onPackagePictureOverride({ kind: "inherit" })}
+            >
+              Use Candidate Profile
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!packageReady}
+              onClick={() => onPackagePictureOverride({ kind: "none" })}
+            >
+              <X className="size-4" />
+              Clear
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              aria-label="Package picture image URL"
+              placeholder="Image URL"
+              disabled={!packageReady}
+              value={packagePictureUrl}
+              onChange={(event) => onPackagePictureUrlChange(event.target.value)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!packageReady || packagePictureUrl.trim() === ""}
+              onClick={() =>
+                onPackagePictureOverride({ kind: "url", url: packagePictureUrl.trim() })
+              }
+            >
+              Save URL
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">Current mode: {pictureMode}</p>
+          {packageStatus !== null ? (
+            <p className="text-sm text-muted-foreground">{packageStatus}</p>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CvField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const id = useId();
+  return (
+    <div className="grid gap-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <Input id={id} value={value} onChange={(event) => onChange(event.target.value)} />
+    </div>
+  );
+}
+
+function CvTextArea({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const id = useId();
+  return (
+    <div className="grid gap-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <Textarea
+        id={id}
+        className="min-h-28"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </div>
+  );
+}
+
+function CvSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  const id = useId();
+  return (
+    <div className="grid gap-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <Select value={value} onValueChange={(next) => onChange(next ?? value)}>
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option} value={option}>
+              {option}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function StringListEditor({
+  label,
+  values,
+  maxItems,
+  onChange,
+}: {
+  label: string;
+  values: string[];
+  maxItems?: number;
+  onChange: (values: string[]) => void;
+}) {
+  const canAdd = maxItems === undefined || values.length < maxItems;
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <Label>{label}</Label>
+        {maxItems !== undefined ? (
+          <span className="text-xs text-muted-foreground">
+            {values.length}/{maxItems}
+          </span>
+        ) : null}
+      </div>
+      {values.map((value, index) => (
+        <div key={index} className="flex gap-2">
+          <Input
+            className="min-w-0 flex-1"
+            value={value}
+            onChange={(event) =>
+              onChange(
+                values.map((item, itemIndex) => (itemIndex === index ? event.target.value : item)),
+              )
+            }
+          />
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            aria-label={`Remove ${label} item`}
+            onClick={() => onChange(values.filter((_, itemIndex) => itemIndex !== index))}
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={!canAdd}
+        onClick={() => onChange([...values, ""])}
+      >
+        <Plus className="size-3.5" />
+        Add
+      </Button>
+    </div>
+  );
+}
+
+function ExperienceDraftEditor({
+  draft,
+  onChange,
+}: {
+  draft: CvDraftSnapshot;
+  onChange: (draft: CvDraftSnapshot) => void;
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <Label>Experience</Label>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() =>
+            onChange({
+              ...draft,
+              experience: [
+                ...draft.experience,
+                {
+                  sourceExperienceId: null,
+                  company: "",
+                  role: "",
+                  period: "",
+                  bullets: [""],
+                },
+              ],
+            })
+          }
+        >
+          <Plus className="size-3.5" />
+          Add experience
+        </Button>
+      </div>
+      {draft.experience.map((experience, index) => (
+        <div key={index} className="space-y-3 rounded-md border bg-white p-3">
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Remove experience"
+              onClick={() =>
+                onChange({
+                  ...draft,
+                  experience: draft.experience.filter((_, itemIndex) => itemIndex !== index),
+                })
+              }
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <CvField
+              label="Company"
+              value={experience.company}
+              onChange={(company) =>
+                replaceExperience(draft, index, { ...experience, company }, onChange)
+              }
+            />
+            <CvField
+              label="Role"
+              value={experience.role}
+              onChange={(role) =>
+                replaceExperience(draft, index, { ...experience, role }, onChange)
+              }
+            />
+            <CvField
+              label="Period"
+              value={experience.period}
+              onChange={(period) =>
+                replaceExperience(draft, index, { ...experience, period }, onChange)
+              }
+            />
+          </div>
+          <CvTextArea
+            label="Story"
+            value={experience.bullets.join("\n")}
+            onChange={(story) =>
+              replaceExperience(
+                draft,
+                index,
+                { ...experience, bullets: story.split("\n") },
+                onChange,
+              )
+            }
+          />
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function EducationDraftEditor({
+  draft,
+  onChange,
+}: {
+  draft: CvDraftSnapshot;
+  onChange: (draft: CvDraftSnapshot) => void;
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <Label>Education</Label>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() =>
+            onChange({
+              ...draft,
+              education: [
+                ...draft.education,
+                {
+                  sourceEducationId: null,
+                  school: "",
+                  degree: "",
+                  period: "",
+                  details: [""],
+                },
+              ],
+            })
+          }
+        >
+          <Plus className="size-3.5" />
+          Add education
+        </Button>
+      </div>
+      {draft.education.map((education, index) => (
+        <div key={index} className="space-y-3 rounded-md border bg-white p-3">
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Remove education"
+              onClick={() =>
+                onChange({
+                  ...draft,
+                  education: draft.education.filter((_, itemIndex) => itemIndex !== index),
+                })
+              }
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <CvField
+              label="School"
+              value={education.school}
+              onChange={(school) =>
+                replaceEducation(draft, index, { ...education, school }, onChange)
+              }
+            />
+            <CvField
+              label="Degree"
+              value={education.degree}
+              onChange={(degree) =>
+                replaceEducation(draft, index, { ...education, degree }, onChange)
+              }
+            />
+            <CvField
+              label="Period"
+              value={education.period}
+              onChange={(period) =>
+                replaceEducation(draft, index, { ...education, period }, onChange)
+              }
+            />
+          </div>
+          <StringListEditor
+            label="Details"
+            values={education.details}
+            onChange={(details) =>
+              replaceEducation(draft, index, { ...education, details }, onChange)
+            }
+          />
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function replaceExperience(
+  draft: CvDraftSnapshot,
+  index: number,
+  experience: CvDraftSnapshot["experience"][number],
+  onChange: (draft: CvDraftSnapshot) => void,
+) {
+  onChange({
+    ...draft,
+    experience: draft.experience.map((item, itemIndex) =>
+      itemIndex === index ? experience : item,
+    ),
+  });
+}
+
+function replaceEducation(
+  draft: CvDraftSnapshot,
+  index: number,
+  education: CvDraftSnapshot["education"][number],
+  onChange: (draft: CvDraftSnapshot) => void,
+) {
+  onChange({
+    ...draft,
+    education: draft.education.map((item, itemIndex) => (itemIndex === index ? education : item)),
+  });
+}
+
+function PdfVersionHistory({
+  versions,
+}: {
+  versions: (Doc<"cvPdfVersions"> & { downloadUrl: string | null })[];
+}) {
+  return (
+    <section className="space-y-2">
+      <Label>PDF Versions</Label>
+      {versions.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No PDF Versions generated yet.</p>
+      ) : (
+        <div className="divide-y rounded-md border bg-white">
+          {versions.map((version, index) => (
+            <div
+              key={version._id}
+              className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm"
+            >
+              <div>
+                <p className="font-medium">{index === 0 ? "Latest PDF" : "Previous PDF"}</p>
+                <p className="text-muted-foreground">
+                  {new Date(version.generatedAt).toLocaleString()} · revision{" "}
+                  {version.draftRevision}
+                </p>
+              </div>
+              {version.downloadUrl !== null ? (
+                <a
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                  href={version.downloadUrl}
+                  download={version.filename}
+                >
+                  <Download className="size-3.5" />
+                  Download
+                </a>
+              ) : (
+                <Badge variant="secondary">Unavailable</Badge>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

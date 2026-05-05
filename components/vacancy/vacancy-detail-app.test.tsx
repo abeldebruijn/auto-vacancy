@@ -1,15 +1,20 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { VacancyDetailApp } from "@/components/vacancy/vacancy-detail-app";
 
 const apiMock = vi.hoisted(() => ({
   applicationPackage: {
-    generateProfilePictureUploadUrl: "generatePackageProfilePictureUploadUrl",
+    generateProfilePictureUploadUrl: "generateProfilePictureUploadUrl",
     getByVacancy: "getApplicationPackageByVacancy",
-    getOrCreateForVacancy: "getOrCreateApplicationPackageForVacancy",
-    setProfilePictureOverride: "setPackageProfilePictureOverride",
+    getOrCreateForVacancy: "getOrCreateForVacancy",
+    saveCvDraft: "saveCvDraft",
+    setProfilePictureOverride: "setProfilePictureOverride",
+  },
+  applicationPackageAgents: {
+    generateCvDraft: "generateCvDraft",
+    generateCvPdfVersion: "generateCvPdfVersion",
+    regenerateCvDraft: "regenerateCvDraft",
   },
   profile: {
     addSkill: "addSkill",
@@ -23,12 +28,16 @@ const apiMock = vi.hoisted(() => ({
 
 const mocks = vi.hoisted(() => ({
   addSkill: vi.fn(),
-  applicationPackageData: null as unknown,
-  getOrCreateApplicationPackage: vi.fn(),
-  packageUploadUrl: vi.fn(),
+  generateCvDraft: vi.fn(),
+  generateCvPdfVersion: vi.fn(),
+  generateProfilePictureUploadUrl: vi.fn(),
+  getOrCreateForVacancy: vi.fn(),
+  packageDetail: null as unknown,
   profileData: null as unknown,
+  regenerateCvDraft: vi.fn(),
+  saveCvDraft: vi.fn(),
   setArchived: vi.fn(),
-  setPackagePictureOverride: vi.fn(),
+  setProfilePictureOverride: vi.fn(),
   vacancyDetail: null as unknown,
 }));
 
@@ -39,24 +48,36 @@ vi.mock("@/convex/_generated/api", () => ({
 vi.mock("convex/react", () => ({
   Authenticated: ({ children }: { children: ReactNode }) => children,
   Unauthenticated: () => null,
-  useMutation: (mutation: string) => {
-    if (mutation === apiMock.applicationPackage.getOrCreateForVacancy) {
-      return mocks.getOrCreateApplicationPackage;
+  useAction: (actionName: string) => {
+    if (actionName === apiMock.applicationPackageAgents.generateCvDraft)
+      return mocks.generateCvDraft;
+    if (actionName === apiMock.applicationPackageAgents.regenerateCvDraft) {
+      return mocks.regenerateCvDraft;
     }
-    if (mutation === apiMock.applicationPackage.generateProfilePictureUploadUrl) {
-      return mocks.packageUploadUrl;
+    if (actionName === apiMock.applicationPackageAgents.generateCvPdfVersion) {
+      return mocks.generateCvPdfVersion;
     }
-    if (mutation === apiMock.applicationPackage.setProfilePictureOverride) {
-      return mocks.setPackagePictureOverride;
-    }
-    if (mutation === apiMock.vacancy.setArchived) return mocks.setArchived;
-    if (mutation === apiMock.profile.addSkill) return mocks.addSkill;
     return vi.fn();
   },
-  useQuery: (query: string) => {
-    if (query === apiMock.vacancy.getBySlugId) return mocks.vacancyDetail;
-    if (query === apiMock.profile.get) return mocks.profileData;
-    if (query === apiMock.applicationPackage.getByVacancy) return mocks.applicationPackageData;
+  useMutation: (mutationName: string) => {
+    if (mutationName === apiMock.applicationPackage.getOrCreateForVacancy) {
+      return mocks.getOrCreateForVacancy;
+    }
+    if (mutationName === apiMock.applicationPackage.generateProfilePictureUploadUrl) {
+      return mocks.generateProfilePictureUploadUrl;
+    }
+    if (mutationName === apiMock.applicationPackage.setProfilePictureOverride) {
+      return mocks.setProfilePictureOverride;
+    }
+    if (mutationName === apiMock.applicationPackage.saveCvDraft) return mocks.saveCvDraft;
+    if (mutationName === apiMock.profile.addSkill) return mocks.addSkill;
+    if (mutationName === apiMock.vacancy.setArchived) return mocks.setArchived;
+    return vi.fn();
+  },
+  useQuery: (queryName: string) => {
+    if (queryName === apiMock.vacancy.getBySlugId) return mocks.vacancyDetail;
+    if (queryName === apiMock.applicationPackage.getByVacancy) return mocks.packageDetail;
+    if (queryName === apiMock.profile.get) return mocks.profileData;
     return null;
   },
 }));
@@ -67,15 +88,13 @@ vi.mock("@clerk/nextjs", () => ({
 }));
 
 const vacancyDetail = {
-  questions: [],
-  requiredSkills: [],
-  researchSummaries: [],
   vacancy: {
-    _creationTime: 1,
     _id: "vacancy-1",
+    _creationTime: 1,
+    archivedAt: undefined,
     companyConfidence: 1,
-    companyHomepageUrl: null,
-    companyName: "bunq",
+    companyHomepageUrl: "https://example.com",
+    companyName: "Acme",
     coverLetterAddressee: null,
     createdAt: 1,
     error: null,
@@ -83,144 +102,158 @@ const vacancyDetail = {
     languageConfidence: 1,
     ownerToken: "owner",
     profileId: "profile-1",
-    slug: "bunq",
+    slug: "acme",
     status: "ready",
     title: "Frontend Engineer",
     titleConfidence: 1,
     updatedAt: 1,
-    vacancyText: "Long vacancy description",
+    vacancyText: "Acme needs a Frontend Engineer.",
   },
+  questions: [],
+  requiredSkills: [],
+  researchSummaries: [],
 };
 
-const profileData = {
-  educations: [],
-  experiences: [],
-  hobbies: [],
-  pictureUrl: "https://example.com/profile.jpg",
-  profile: {
-    _creationTime: 1,
-    _id: "profile-1",
-    birthday: null,
-    characteristics: [],
-    email: null,
-    linkedinLink: null,
-    name: "Abel de Bruijn",
-    nextSteps: [],
-    otherDetails: null,
-    otherSocialLinks: [],
-    ownerToken: "owner",
-    phoneNumber: null,
-    placeOfResidence: null,
-    portfolioLink: null,
-    profilePicture: { kind: "url", url: "https://example.com/profile.jpg" },
-    updatedAt: 1,
-  },
-  skills: [],
-};
-
-function packageData(profilePictureOverride: { kind: string; url?: string; storageId?: string }) {
-  return {
-    applicationPackage: {
-      _creationTime: 1,
-      _id: "package-1",
-      createdAt: 1,
-      ownerToken: "owner",
-      profileId: "profile-1",
-      profilePictureOverride,
-      updatedAt: 1,
-      vacancyUnderstandingId: "vacancy-1",
+const draftSnapshot = {
+  accent: "#2563eb",
+  company: "Acme",
+  education: [
+    {
+      sourceEducationId: "education-1",
+      degree: "MSc Computer Science",
+      details: ["Distributed systems"],
+      period: "2020 - 2022",
+      school: "University",
     },
-    pictureUrl:
-      profilePictureOverride.kind === "none"
-        ? null
-        : profilePictureOverride.kind === "url"
-          ? profilePictureOverride.url
-          : "https://example.com/profile.jpg",
-  };
-}
+  ],
+  email: "abel@example.com",
+  experience: [
+    {
+      sourceExperienceId: "experience-1",
+      bullets: ["Built React workflows"],
+      company: "Inkaart",
+      period: "2022 - Present",
+      role: "Software Engineer",
+    },
+  ],
+  layout: "compact",
+  links: ["https://example.com"],
+  location: "Amsterdam",
+  name: "Abel de Bruijn",
+  paper: "a4",
+  role: "Frontend Engineer",
+  skills: ["React", "TypeScript"],
+  summary: "Frontend engineer focused on product workflows.",
+  title: "Software Engineer",
+};
 
-describe("VacancyDetailApp Application Package picture controls", () => {
+describe("VacancyDetailApp Application Package", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
     mocks.addSkill.mockReset();
-    mocks.getOrCreateApplicationPackage.mockReset();
-    mocks.getOrCreateApplicationPackage.mockResolvedValue(packageData({ kind: "inherit" }));
-    mocks.packageUploadUrl.mockReset();
+    mocks.generateCvDraft.mockReset();
+    mocks.generateCvPdfVersion.mockReset();
+    mocks.generateProfilePictureUploadUrl.mockReset();
+    mocks.getOrCreateForVacancy.mockReset();
+    mocks.regenerateCvDraft.mockReset();
+    mocks.saveCvDraft.mockReset();
     mocks.setArchived.mockReset();
-    mocks.setPackagePictureOverride.mockReset();
-    mocks.applicationPackageData = packageData({ kind: "inherit" });
-    mocks.profileData = profileData;
+    mocks.setProfilePictureOverride.mockReset();
     mocks.vacancyDetail = vacancyDetail;
-  });
-
-  it("shows the inherited Candidate Profile picture by default", () => {
-    render(<VacancyDetailApp slugId="bunq-vacancy-1" />);
-
-    expect(screen.getByText("Application Package")).toBeInTheDocument();
-    expect(screen.getByText(/Current mode:/)).toHaveTextContent("inherit");
-  });
-
-  it("saves URL, clear, and inherit picture modes", async () => {
-    render(<VacancyDetailApp slugId="bunq-vacancy-1" />);
-
-    await userEvent.type(
-      screen.getByLabelText("Package picture image URL"),
-      "https://img.test/me.png",
-    );
-    await userEvent.click(screen.getByRole("button", { name: "Save URL" }));
-    await userEvent.click(screen.getByRole("button", { name: "Clear" }));
-    await userEvent.click(screen.getByRole("button", { name: "Use Candidate Profile" }));
-
-    expect(mocks.setPackagePictureOverride).toHaveBeenNthCalledWith(1, {
-      profilePictureOverride: { kind: "url", url: "https://img.test/me.png" },
-      vacancyUnderstandingId: "vacancy-1",
-    });
-    expect(mocks.setPackagePictureOverride).toHaveBeenNthCalledWith(2, {
-      profilePictureOverride: { kind: "none" },
-      vacancyUnderstandingId: "vacancy-1",
-    });
-    expect(mocks.setPackagePictureOverride).toHaveBeenNthCalledWith(3, {
-      profilePictureOverride: { kind: "inherit" },
-      vacancyUnderstandingId: "vacancy-1",
+    mocks.profileData = { experiences: [], skills: [] };
+    mocks.packageDetail = null;
+    mocks.getOrCreateForVacancy.mockResolvedValue({
+      applicationPackage: {
+        _id: "package-1",
+        _creationTime: 1,
+        createdAt: 1,
+        ownerToken: "owner",
+        profileId: "profile-1",
+        profilePictureOverride: { kind: "inherit" },
+        updatedAt: 1,
+        vacancyUnderstandingId: "vacancy-1",
+      },
+      pictureUrl: null,
     });
   });
 
-  it("uploads a package-specific profile picture", async () => {
-    const fetchMock = vi.fn(async () => ({
-      json: async () => ({ storageId: "storage-1" }),
-      ok: true,
-    }));
-    vi.stubGlobal("fetch", fetchMock);
-    mocks.packageUploadUrl.mockResolvedValue("https://upload.test");
+  it("generates a CV Draft when no Application Package exists", async () => {
+    mocks.generateCvDraft.mockResolvedValue("draft-1");
 
-    const { container } = render(<VacancyDetailApp slugId="bunq-vacancy-1" />);
-    const input = container.querySelector('input[type="file"]');
-    expect(input).not.toBeNull();
+    render(<VacancyDetailApp slugId="acme-vacancy-1" />);
 
-    await userEvent.upload(input!, new File(["image"], "me.png", { type: "image/png" }));
+    expect(screen.getByRole("button", { name: /generate cv draft/i })).toBeInTheDocument();
+    expect(screen.queryByText(/json/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /generate cv draft/i }));
 
     await waitFor(() =>
-      expect(mocks.setPackagePictureOverride).toHaveBeenCalledWith({
-        profilePictureOverride: { kind: "storage", storageId: "storage-1" },
-        vacancyUnderstandingId: "vacancy-1",
-      }),
+      expect(mocks.generateCvDraft).toHaveBeenCalledWith({ vacancyUnderstandingId: "vacancy-1" }),
     );
-    expect(fetchMock).toHaveBeenCalledWith("https://upload.test", {
-      body: expect.any(File),
-      headers: { "Content-Type": "image/png" },
-      method: "POST",
-    });
   });
 
-  it("creates an Application Package when none exists yet", async () => {
-    mocks.applicationPackageData = null;
+  it("edits and exports an existing CV Draft without exposing JSON", async () => {
+    mocks.packageDetail = {
+      applicationPackage: {
+        _id: "package-1",
+        _creationTime: 1,
+        createdAt: 1,
+        ownerToken: "owner",
+        profileId: "profile-1",
+        profilePictureOverride: { kind: "inherit" },
+        updatedAt: 1,
+        vacancyUnderstandingId: "vacancy-1",
+      },
+      cvDraft: {
+        _id: "draft-1",
+        _creationTime: 1,
+        applicationPackageId: "package-1",
+        createdAt: 1,
+        ownerToken: "owner",
+        profileId: "profile-1",
+        revision: 1,
+        snapshot: draftSnapshot,
+        updatedAt: 1,
+        vacancyUnderstandingId: "vacancy-1",
+      },
+      pdfVersions: [
+        {
+          _id: "version-1",
+          _creationTime: 1,
+          applicationPackageId: "package-1",
+          cvDraftId: "draft-1",
+          downloadUrl: "https://files.example/cv.pdf",
+          draftRevision: 1,
+          draftSnapshot,
+          filename: "cv.pdf",
+          generatedAt: Date.UTC(2026, 0, 2),
+          ownerToken: "owner",
+          profileId: "profile-1",
+          storageId: "storage-1",
+          vacancyUnderstandingId: "vacancy-1",
+        },
+      ],
+      pictureUrl: "https://files.example/profile.jpg",
+    };
+    mocks.saveCvDraft.mockResolvedValue(null);
+    mocks.generateCvPdfVersion.mockResolvedValue("version-2");
 
-    render(<VacancyDetailApp slugId="bunq-vacancy-1" />);
+    render(<VacancyDetailApp slugId="acme-vacancy-1" />);
+
+    fireEvent.change(screen.getByLabelText("Summary"), {
+      target: { value: "Updated tailored summary." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /generate pdf/i }));
 
     await waitFor(() =>
-      expect(mocks.getOrCreateApplicationPackage).toHaveBeenCalledWith({
-        vacancyUnderstandingId: "vacancy-1",
+      expect(mocks.saveCvDraft).toHaveBeenCalledWith({
+        cvDraftId: "draft-1",
+        snapshot: expect.objectContaining({ summary: "Updated tailored summary." }),
       }),
     );
+    await waitFor(() =>
+      expect(mocks.generateCvPdfVersion).toHaveBeenCalledWith({ cvDraftId: "draft-1" }),
+    );
+    expect(screen.getByText(/latest pdf/i)).toBeInTheDocument();
+    expect(screen.queryByText(/json/i)).not.toBeInTheDocument();
   });
 });
