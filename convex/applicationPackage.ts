@@ -193,7 +193,7 @@ export const upsertGeneratedCvDraft = internalMutation({
     const now = Date.now();
     const snapshot = normalizeSnapshot(args.snapshot);
     if (existing === null) {
-      return await ctx.db.insert("cvDrafts", {
+      const cvDraftId = await ctx.db.insert("cvDrafts", {
         ownerToken: args.ownerToken,
         applicationPackageId: applicationPackage._id,
         vacancyUnderstandingId: applicationPackage.vacancyUnderstandingId,
@@ -203,6 +203,8 @@ export const upsertGeneratedCvDraft = internalMutation({
         createdAt: now,
         updatedAt: now,
       });
+      await ctx.db.patch(applicationPackage._id, { updatedAt: now });
+      return cvDraftId;
     }
     await ctx.db.patch(existing._id, {
       snapshot,

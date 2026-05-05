@@ -49,6 +49,10 @@ type Proficiency = "low" | "medium" | "high" | "expert";
 type RequiredSkill = Doc<"vacancyRequiredSkills">;
 type CvDraftSnapshot = Doc<"cvDrafts">["snapshot"];
 
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message.trim() !== "" ? error.message : fallback;
+}
+
 export function VacancyDetailApp({ slugId }: { slugId: string }) {
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-950">
@@ -95,12 +99,27 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
   const [storyIds, setStoryIds] = useState<Id<"experienceStories">[]>([]);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [cvDraft, setCvDraft] = useState<CvDraftSnapshot | null>(null);
+  const [cvDraftServerKey, setCvDraftServerKey] = useState<string | null>(null);
+  const [cvDraftDirty, setCvDraftDirty] = useState(false);
   const [cvStatus, setCvStatus] = useState<string | null>(null);
+  const [cvActionPending, setCvActionPending] = useState(false);
 
   useEffect(() => {
-    if (packageDetail?.cvDraft === undefined) return;
-    setCvDraft(packageDetail.cvDraft?.snapshot ?? null);
-  }, [packageDetail?.cvDraft]);
+    if (packageDetail === undefined) return;
+    if (packageDetail === null || packageDetail.cvDraft === null) {
+      setCvDraft(null);
+      setCvDraftServerKey(null);
+      setCvDraftDirty(false);
+      return;
+    }
+
+    const incomingKey = `${packageDetail.cvDraft._id}:${packageDetail.cvDraft.revision}`;
+    if (incomingKey !== cvDraftServerKey || !cvDraftDirty) {
+      setCvDraft(packageDetail.cvDraft.snapshot);
+      setCvDraftServerKey(incomingKey);
+      setCvDraftDirty(false);
+    }
+  }, [packageDetail, cvDraftDirty, cvDraftServerKey]);
 
   const evidenceOptions =
     profileData === undefined || profileData === null
@@ -142,39 +161,81 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
   }
 
   async function createCvDraft() {
-    if (detail === undefined || detail === null) return;
+    if (detail === undefined || detail === null || cvActionPending) return;
+    setCvActionPending(true);
     setCvStatus("Generating CV Draft...");
-    await generateCvDraft({ vacancyUnderstandingId: detail.vacancy._id });
-    setCvStatus("CV Draft generated.");
+    try {
+      await generateCvDraft({ vacancyUnderstandingId: detail.vacancy._id });
+      setCvStatus("CV Draft generated.");
+    } catch (error) {
+      setCvStatus(errorMessage(error, "CV Draft generation failed."));
+    } finally {
+      setCvActionPending(false);
+    }
   }
 
   async function overwriteCvDraft() {
-    if (detail === undefined || detail === null) return;
+    if (detail === undefined || detail === null || cvActionPending) return;
     const confirmed = window.confirm("Regenerate the CV Draft? This overwrites your saved edits.");
     if (!confirmed) return;
+    setCvActionPending(true);
     setCvStatus("Regenerating CV Draft...");
-    await regenerateCvDraft({ vacancyUnderstandingId: detail.vacancy._id });
-    setCvStatus("CV Draft regenerated.");
+    try {
+      await regenerateCvDraft({ vacancyUnderstandingId: detail.vacancy._id });
+      setCvStatus("CV Draft regenerated.");
+    } catch (error) {
+      setCvStatus(errorMessage(error, "CV Draft regeneration failed."));
+    } finally {
+      setCvActionPending(false);
+    }
   }
 
   async function persistCvDraft() {
     if (
       packageDetail?.cvDraft === null ||
       packageDetail?.cvDraft === undefined ||
-      cvDraft === null
+      cvDraft === null ||
+      cvActionPending
     ) {
       return;
     }
+    setCvActionPending(true);
     setCvStatus("Saving CV Draft...");
-    await saveCvDraft({ cvDraftId: packageDetail.cvDraft._id, snapshot: cvDraft });
-    setCvStatus("CV Draft saved.");
+    try {
+      await saveCvDraft({ cvDraftId: packageDetail.cvDraft._id, snapshot: cvDraft });
+      setCvStatus("CV Draft saved.");
+    } catch (error) {
+      setCvStatus(errorMessage(error, "CV Draft save failed."));
+    } finally {
+      setCvActionPending(false);
+    }
   }
 
   async function createPdfVersion() {
-    if (packageDetail?.cvDraft === null || packageDetail?.cvDraft === undefined) return;
+    if (
+      packageDetail?.cvDraft === null ||
+      packageDetail?.cvDraft === undefined ||
+      cvDraft === null ||
+      cvActionPending
+    ) {
+      return;
+    }
+    setCvActionPending(true);
     setCvStatus("Generating PDF...");
-    await generateCvPdfVersion({ cvDraftId: packageDetail.cvDraft._id });
-    setCvStatus("PDF Version generated.");
+    try {
+      await saveCvDraft({ cvDraftId: packageDetail.cvDraft._id, snapshot: cvDraft });
+      await generateCvPdfVersion({ cvDraftId: packageDetail.cvDraft._id });
+      setCvStatus("PDF Version generated.");
+    } catch (error) {
+      setCvStatus(errorMessage(error, "PDF generation failed."));
+    } finally {
+      setCvActionPending(false);
+    }
+  }
+
+  function updateCvDraft(nextDraft: CvDraftSnapshot) {
+    setCvDraft(nextDraft);
+    setCvDraftDirty(true);
   }
 
   if (detail === undefined) {
@@ -256,11 +317,12 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
                   draft={cvDraft}
                   pdfVersions={packageDetail?.pdfVersions ?? []}
                   status={cvStatus}
+                  pending={cvActionPending}
                   onGenerate={() => void createCvDraft()}
                   onRegenerate={() => void overwriteCvDraft()}
                   onSave={() => void persistCvDraft()}
                   onGeneratePdf={() => void createPdfVersion()}
-                  onChange={setCvDraft}
+                  onChange={updateCvDraft}
                 />
               )}
             </CardContent>
@@ -431,6 +493,7 @@ function CvDraftWorkspace({
   draft,
   pdfVersions,
   status,
+  pending,
   onGenerate,
   onRegenerate,
   onSave,
@@ -440,6 +503,7 @@ function CvDraftWorkspace({
   draft: CvDraftSnapshot | null;
   pdfVersions: (Doc<"cvPdfVersions"> & { downloadUrl: string | null })[];
   status: string | null;
+  pending: boolean;
   onGenerate: () => void;
   onRegenerate: () => void;
   onSave: () => void;
@@ -455,7 +519,7 @@ function CvDraftWorkspace({
             Generate an editable CV Draft from this Vacancy and your Candidate Profile.
           </p>
         </div>
-        <Button type="button" onClick={onGenerate}>
+        <Button type="button" disabled={pending} onClick={onGenerate}>
           <FileText className="size-4" />
           Generate CV Draft
         </Button>
@@ -476,15 +540,15 @@ function CvDraftWorkspace({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={onRegenerate}>
+          <Button type="button" variant="outline" disabled={pending} onClick={onRegenerate}>
             <RefreshCw className="size-4" />
             Regenerate
           </Button>
-          <Button type="button" variant="outline" onClick={onSave}>
+          <Button type="button" variant="outline" disabled={pending} onClick={onSave}>
             <Save className="size-4" />
             Save
           </Button>
-          <Button type="button" onClick={onGeneratePdf}>
+          <Button type="button" disabled={pending} onClick={onGeneratePdf}>
             <Download className="size-4" />
             Generate PDF
           </Button>

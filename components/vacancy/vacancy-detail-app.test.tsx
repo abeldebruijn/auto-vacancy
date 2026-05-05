@@ -209,7 +209,6 @@ describe("VacancyDetailApp Application Package", () => {
     fireEvent.change(screen.getByLabelText("Summary"), {
       target: { value: "Updated tailored summary." },
     });
-    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
     fireEvent.click(screen.getByRole("button", { name: /generate pdf/i }));
 
     await waitFor(() =>
@@ -218,7 +217,9 @@ describe("VacancyDetailApp Application Package", () => {
         snapshot: expect.objectContaining({ summary: "Updated tailored summary." }),
       }),
     );
-    expect(mocks.generateCvPdfVersion).toHaveBeenCalledWith({ cvDraftId: "draft-1" });
+    await waitFor(() =>
+      expect(mocks.generateCvPdfVersion).toHaveBeenCalledWith({ cvDraftId: "draft-1" }),
+    );
     expect(screen.getByText(/latest pdf/i)).toBeInTheDocument();
     expect(screen.queryByText(/json/i)).not.toBeInTheDocument();
   });

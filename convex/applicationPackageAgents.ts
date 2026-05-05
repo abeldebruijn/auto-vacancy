@@ -353,8 +353,13 @@ function pdfFilename(snapshot: CvDraftSnapshot) {
   return `${slug || "cv"}.pdf`;
 }
 
+function safePdfColor(value: string) {
+  return /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value) ? value : "#2563eb";
+}
+
 async function renderCvPdf(snapshot: CvDraftSnapshot) {
   const chunks: Buffer[] = [];
+  const accent = safePdfColor(snapshot.accent);
   const doc = new PDFDocument({
     margin: 56,
     size: snapshot.paper === "letter" ? "LETTER" : "A4",
@@ -366,7 +371,7 @@ async function renderCvPdf(snapshot: CvDraftSnapshot) {
     doc.on("error", reject);
   });
 
-  doc.fillColor(snapshot.accent).fontSize(22).text(snapshot.name);
+  doc.fillColor(accent).fontSize(22).text(snapshot.name);
   doc.fillColor("#111827").fontSize(12).text(`${snapshot.role} · ${snapshot.company}`);
   const contact = [snapshot.email, snapshot.location, ...snapshot.links]
     .filter(Boolean)
@@ -379,12 +384,12 @@ async function renderCvPdf(snapshot: CvDraftSnapshot) {
   doc.fillColor("#111827").fontSize(11).text(snapshot.summary, { lineGap: 3 });
 
   if (snapshot.skills.length > 0) {
-    sectionTitle(doc, "Skills", snapshot.accent);
+    sectionTitle(doc, "Skills", accent);
     doc.fillColor("#111827").fontSize(10).text(snapshot.skills.join(" • "), { lineGap: 2 });
   }
 
   if (snapshot.experience.length > 0) {
-    sectionTitle(doc, "Experience", snapshot.accent);
+    sectionTitle(doc, "Experience", accent);
     for (const experience of snapshot.experience) {
       doc
         .fillColor("#111827")
@@ -401,7 +406,7 @@ async function renderCvPdf(snapshot: CvDraftSnapshot) {
   }
 
   if (snapshot.education.length > 0) {
-    sectionTitle(doc, "Education", snapshot.accent);
+    sectionTitle(doc, "Education", accent);
     for (const education of snapshot.education) {
       doc
         .fillColor("#111827")
