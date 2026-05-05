@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { applicationPackageProfilePictureOverrideValidator } from "./applicationPackageModel";
 import { profileInputValidator } from "./profileModel";
 
 export default defineSchema({
@@ -177,4 +178,16 @@ export default defineSchema({
     answer: v.union(v.string(), v.null()),
     sortOrder: v.number(),
   }).index("by_vacancyUnderstandingId", ["vacancyUnderstandingId"]),
+
+  applicationPackages: defineTable({
+    ownerToken: v.string(),
+    vacancyUnderstandingId: v.id("vacancyUnderstandings"),
+    profileId: v.id("candidateProfiles"),
+    profilePictureOverride: applicationPackageProfilePictureOverrideValidator,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_ownerToken", ["ownerToken"])
+    .index("by_vacancyUnderstandingId", ["vacancyUnderstandingId"])
+    .index("by_ownerToken_and_vacancyUnderstandingId", ["ownerToken", "vacancyUnderstandingId"]),
 });

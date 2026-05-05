@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as applicationPackage from "../applicationPackage.js";
+import type * as applicationPackageModel from "../applicationPackageModel.js";
 import type * as importedCv from "../importedCv.js";
 import type * as profile from "../profile.js";
 import type * as profileModel from "../profileModel.js";
@@ -22,6 +24,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  applicationPackage: typeof applicationPackage;
+  applicationPackageModel: typeof applicationPackageModel;
   importedCv: typeof importedCv;
   profile: typeof profile;
   profileModel: typeof profileModel;

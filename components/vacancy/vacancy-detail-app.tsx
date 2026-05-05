@@ -1,12 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
 import { SignInButton } from "@clerk/nextjs";
-import { Archive, ArchiveRestore, Check, ChevronDown, ExternalLink, Plus } from "lucide-react";
+import {
+  Archive,
+  ArchiveRestore,
+  Camera,
+  Check,
+  ChevronDown,
+  ExternalLink,
+  FileText,
+  Plus,
+  UserRound,
+  X,
+} from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { AppHeader } from "@/components/profile/app-header";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -33,6 +46,11 @@ import { statusLabel } from "@/components/vacancy/vacancy-utils";
 
 type Proficiency = "low" | "medium" | "high" | "expert";
 type RequiredSkill = Doc<"vacancyRequiredSkills">;
+type PackagePictureOverride =
+  | { kind: "inherit" }
+  | { kind: "none" }
+  | { kind: "url"; url: string }
+  | { kind: "storage"; storageId: Id<"_storage"> };
 
 export function VacancyDetailApp({ slugId }: { slugId: string }) {
   return (
@@ -62,6 +80,17 @@ export function VacancyDetailApp({ slugId }: { slugId: string }) {
 function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
   const detail = useQuery(api.vacancy.getBySlugId, { slugId });
   const profileData = useQuery(api.profile.get);
+  const applicationPackage = useQuery(
+    api.applicationPackage.getByVacancy,
+    detail === undefined || detail === null
+      ? "skip"
+      : { vacancyUnderstandingId: detail.vacancy._id },
+  );
+  const getOrCreateApplicationPackage = useMutation(api.applicationPackage.getOrCreateForVacancy);
+  const uploadPackagePictureUrl = useMutation(
+    api.applicationPackage.generateProfilePictureUploadUrl,
+  );
+  const setPackagePictureOverride = useMutation(api.applicationPackage.setProfilePictureOverride);
   const setArchived = useMutation(api.vacancy.setArchived);
   const addProfileSkill = useMutation(api.profile.addSkill);
   const [skillDialog, setSkillDialog] = useState<RequiredSkill | null>(null);
@@ -69,6 +98,26 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
   const [experienceIds, setExperienceIds] = useState<Id<"experiences">[]>([]);
   const [storyIds, setStoryIds] = useState<Id<"experienceStories">[]>([]);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [packageStatus, setPackageStatus] = useState<string | null>(null);
+  const [packagePictureUrl, setPackagePictureUrl] = useState("");
+  const packageReady = applicationPackage !== undefined && applicationPackage !== null;
+
+  useEffect(() => {
+    if (detail === undefined || detail === null) return;
+    if (applicationPackage !== null) return;
+    void getOrCreateApplicationPackage({ vacancyUnderstandingId: detail.vacancy._id }).catch(() => {
+      setPackageStatus("Failed to prepare Application Package.");
+    });
+  }, [applicationPackage, detail, getOrCreateApplicationPackage]);
+
+  useEffect(() => {
+    const override = applicationPackage?.applicationPackage.profilePictureOverride;
+    if (override?.kind === "url") {
+      setPackagePictureUrl(override.url);
+    } else if (override !== undefined) {
+      setPackagePictureUrl("");
+    }
+  }, [applicationPackage?.applicationPackage.profilePictureOverride]);
 
   const evidenceOptions =
     profileData === undefined || profileData === null
@@ -107,6 +156,44 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
     });
     setSaveStatus("Skill saved to Candidate Profile.");
     setSkillDialog(null);
+  }
+
+  async function savePackagePictureOverride(profilePictureOverride: PackagePictureOverride) {
+    if (detail === undefined || detail === null) return;
+    setPackageStatus("Saving package picture...");
+    try {
+      await setPackagePictureOverride({
+        vacancyUnderstandingId: detail.vacancy._id,
+        profilePictureOverride,
+      });
+      setPackageStatus("Package picture saved.");
+    } catch {
+      setPackageStatus("Failed to save package picture. Please try again.");
+    }
+  }
+
+  async function handlePackagePictureUpload(file: File) {
+    if (detail === undefined || detail === null) return;
+    setPackageStatus("Uploading package picture...");
+    try {
+      const url = await uploadPackagePictureUrl();
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!response.ok) {
+        throw new Error(`Upload failed with status ${response.status}`);
+      }
+      const { storageId } = (await response.json()) as { storageId: Id<"_storage"> };
+      await setPackagePictureOverride({
+        vacancyUnderstandingId: detail.vacancy._id,
+        profilePictureOverride: { kind: "storage", storageId },
+      });
+      setPackageStatus("Package picture saved.");
+    } catch {
+      setPackageStatus("Failed to upload package picture. Please try again.");
+    }
   }
 
   if (detail === undefined) {
@@ -173,6 +260,112 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section className="space-y-5">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="size-4" />
+                Application Package
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <section className="space-y-3">
+                <div>
+                  <h2 className="font-medium">Profile Picture</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Use the Candidate Profile picture or set one just for this package.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-start gap-4">
+                  <Avatar className="size-20 rounded-lg border border-neutral-200" size="lg">
+                    {applicationPackage?.pictureUrl ? (
+                      <AvatarImage
+                        className="rounded-lg object-cover"
+                        src={applicationPackage.pictureUrl}
+                        alt=""
+                      />
+                    ) : (
+                      <AvatarFallback className="rounded-lg bg-neutral-50">
+                        <UserRound className="size-7" />
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                  <div className="min-w-0 flex-1 space-y-3">
+                    <div className="flex flex-wrap gap-2">
+                      <label className="text-sm">
+                        <span className="inline-flex h-8 cursor-pointer items-center gap-2 rounded-md border border-neutral-200 bg-background px-3 text-sm font-medium hover:bg-muted">
+                          <Camera className="size-4" />
+                          Upload
+                        </span>
+                        <input
+                          className="sr-only"
+                          type="file"
+                          accept="image/*"
+                          disabled={!packageReady}
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) void handlePackagePictureUpload(file);
+                            event.currentTarget.value = "";
+                          }}
+                        />
+                      </label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={!packageReady}
+                        onClick={() =>
+                          void savePackagePictureOverride({
+                            kind: "inherit",
+                          })
+                        }
+                      >
+                        Use Candidate Profile
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={!packageReady}
+                        onClick={() => void savePackagePictureOverride({ kind: "none" })}
+                      >
+                        <X className="size-4" />
+                        Clear
+                      </Button>
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        aria-label="Package picture image URL"
+                        placeholder="Image URL"
+                        disabled={!packageReady}
+                        value={packagePictureUrl}
+                        onChange={(event) => setPackagePictureUrl(event.target.value)}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={!packageReady || packagePictureUrl.trim() === ""}
+                        onClick={() =>
+                          void savePackagePictureOverride({
+                            kind: "url",
+                            url: packagePictureUrl.trim(),
+                          })
+                        }
+                      >
+                        Save URL
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Current mode:{" "}
+                      {applicationPackage?.applicationPackage.profilePictureOverride.kind ??
+                        "preparing"}
+                    </p>
+                    {packageStatus !== null ? (
+                      <p className="text-sm text-muted-foreground">{packageStatus}</p>
+                    ) : null}
+                  </div>
+                </div>
+              </section>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Company research</CardTitle>

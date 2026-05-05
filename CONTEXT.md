@@ -33,7 +33,7 @@ Extracted Candidate Profile facts from an Imported CV that wait for Job Seeker a
 _Avoid_: Draft profile, pending import
 
 **Application Package**:
-A vacancy-specific set of generated materials prepared from a Vacancy and Candidate Profile.
+A persisted vacancy-specific workspace for generated materials and package-specific presentation choices.
 _Avoid_: Application draft, tailored documents, submission
 
 **CV**:
@@ -55,6 +55,7 @@ _Avoid_: Motivation letter
 - A **Job Seeker** prepares one **Application Package** for a **Vacancy**.
 - An **Application Package** is derived from exactly one **Vacancy** and one **Candidate Profile**.
 - An **Application Package** contains a tailored **CV** and **Cover Letter**.
+- An **Application Package** may inherit Candidate Profile facts while overriding package-specific presentation choices.
 - Auto Vacancy prepares application materials; employer submission happens outside the system.
 
 ## Example dialogue
@@ -74,3 +75,4 @@ _Avoid_: Motivation letter
 - A **Replacement Preview** is not yet the **Candidate Profile**; it is a proposed replacement.
 - A **Vacancy Understanding** is not yet an **Application Package**; it captures research and clarifications before generated materials exist.
 - **Application Package** does not imply employer submission; submission is outside current scope.
+- "Profile picture" on the **Candidate Profile** is the reusable default; a package picture is specific to one **Application Package**.
