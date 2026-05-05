@@ -7,6 +7,10 @@ import {
   cvDraftSnapshotValidator,
 } from "./applicationPackageModel";
 
+type ProfilePictureOverride = typeof applicationPackageProfilePictureOverrideValidator.type;
+
+const defaultProfilePictureOverride = { kind: "inherit" } satisfies ProfilePictureOverride;
+
 const applicationPackageOutputValidator = v.object({
   _id: v.id("applicationPackages"),
   _creationTime: v.number(),
@@ -57,6 +61,14 @@ const packageDetailOutputValidator = v.union(
   v.null(),
 );
 
+function normalizeApplicationPackage(applicationPackage: Doc<"applicationPackages">) {
+  return {
+    ...applicationPackage,
+    profilePictureOverride:
+      applicationPackage.profilePictureOverride ?? defaultProfilePictureOverride,
+  };
+}
+
 async function requireOwnerToken(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
   if (identity === null) {
@@ -103,7 +115,7 @@ async function getDraftByPackage(
 async function resolvePictureUrl(
   ctx: QueryCtx | MutationCtx,
   profile: Doc<"candidateProfiles">,
-  override: Doc<"applicationPackages">["profilePictureOverride"],
+  override: ProfilePictureOverride,
 ) {
   if (override.kind === "none") return null;
   if (override.kind === "url") return override.url;
@@ -122,7 +134,15 @@ async function ensurePackage(
 ) {
   const vacancy = await getOwnedVacancy(ctx, vacancyUnderstandingId, ownerToken);
   const existing = await getPackageByVacancy(ctx, ownerToken, vacancyUnderstandingId);
-  if (existing !== null) return existing;
+  if (existing !== null) {
+    if (existing.profilePictureOverride === undefined) {
+      await ctx.db.patch(existing._id, {
+        profilePictureOverride: defaultProfilePictureOverride,
+        updatedAt: Date.now(),
+      });
+    }
+    return normalizeApplicationPackage(existing);
+  }
   const now = Date.now();
   const applicationPackageId = await ctx.db.insert("applicationPackages", {
     ownerToken,
@@ -136,7 +156,7 @@ async function ensurePackage(
   if (created === null) {
     throw new Error("Application Package was not created");
   }
-  return created;
+  return normalizeApplicationPackage(created);
 }
 
 export const getByVacancy = query({
@@ -151,13 +171,14 @@ export const getByVacancy = query({
       args.vacancyUnderstandingId,
     );
     if (applicationPackage === null) return null;
-    const profile = await ctx.db.get(applicationPackage.profileId);
+    const normalizedPackage = normalizeApplicationPackage(applicationPackage);
+    const profile = await ctx.db.get(normalizedPackage.profileId);
     if (profile === null || profile.ownerToken !== ownerToken) return null;
-    const cvDraft = await getDraftByPackage(ctx, applicationPackage._id);
+    const cvDraft = await getDraftByPackage(ctx, normalizedPackage._id);
     const versions = await ctx.db
       .query("cvPdfVersions")
       .withIndex("by_applicationPackageId", (q) =>
-        q.eq("applicationPackageId", applicationPackage._id),
+        q.eq("applicationPackageId", normalizedPackage._id),
       )
       .collect();
     const pdfVersions = await Promise.all(
@@ -169,10 +190,10 @@ export const getByVacancy = query({
         })),
     );
     return {
-      applicationPackage,
+      applicationPackage: normalizedPackage,
       cvDraft,
       pdfVersions,
-      pictureUrl: await resolvePictureUrl(ctx, profile, applicationPackage.profilePictureOverride),
+      pictureUrl: await resolvePictureUrl(ctx, profile, normalizedPackage.profilePictureOverride),
     };
   },
 });

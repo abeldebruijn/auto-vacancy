@@ -186,7 +186,7 @@ export default defineSchema({
     ownerToken: v.string(),
     vacancyUnderstandingId: v.id("vacancyUnderstandings"),
     profileId: v.id("candidateProfiles"),
-    profilePictureOverride: applicationPackageProfilePictureOverrideValidator,
+    profilePictureOverride: v.optional(applicationPackageProfilePictureOverrideValidator),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
