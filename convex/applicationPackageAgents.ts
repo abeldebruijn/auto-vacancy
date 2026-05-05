@@ -99,6 +99,14 @@ function clean(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
 
+function topSkills(values: string[]) {
+  return values
+    .map(clean)
+    .filter(Boolean)
+    .filter((skill, index, all) => all.findIndex((item) => item.toLowerCase() === skill.toLowerCase()) === index)
+    .slice(0, MAX_CV_SKILLS);
+}
+
 function splitDetails(value: string | null) {
   return (value ?? "")
     .split(/\n|•|-/)
@@ -129,11 +137,7 @@ function buildFallbackDraft(
   const role = detail.vacancy.title ?? "Vacancy";
   const requiredSkillNames = detail.requiredSkills.map((skill) => skill.name);
   const profileSkillNames = profileData.skills.map((skill) => skill.name);
-  const skills = [...requiredSkillNames, ...profileSkillNames]
-    .map(clean)
-    .filter(Boolean)
-    .filter((skill, index, all) => all.indexOf(skill) === index)
-    .slice(0, MAX_CV_SKILLS);
+  const skills = topSkills([...requiredSkillNames, ...profileSkillNames]);
 
   return {
     name: profileData.profile.name,
@@ -199,7 +203,7 @@ function applyAiDraft(
   return {
     ...base,
     summary: aiDraft.summary,
-    skills: aiDraft.skills.map(clean).filter(Boolean).slice(0, MAX_CV_SKILLS),
+    skills: topSkills(aiDraft.skills),
     experience: aiDraft.experience.map((experience) => ({
       sourceExperienceId: coerceExperienceId(experience.sourceExperienceId, profileData),
       company: experience.company,
@@ -257,7 +261,7 @@ async function buildAiDraft(
       description: "Vacancy-specific CV Draft content for a Job Seeker.",
     }),
     system:
-      "Create a concise, truthful CV Draft from the Candidate Profile and Vacancy Understanding. Use only supported facts. Select exactly the most relevant skills, up to 7 total. Select the most relevant experiences and education. Write each experience as one compact story paragraph, returned as a single bullets item for compatibility. Preserve the Vacancy language when possible. Return source ids when selecting existing profile entries.",
+      "Create a concise, truthful CV Draft from the Candidate Profile and Vacancy Understanding. Use only supported facts. Rank the Vacancy required skills against the Candidate Profile and return only the top 7 most relevant skill labels. Do not return more than 7 skills, do not include broad duplicates, and do not pack multiple skills into one long skill item. Select the most relevant experiences and education. Write each experience as one compact story paragraph, returned as a single bullets item for compatibility. Preserve the Vacancy language when possible. Return source ids when selecting existing profile entries.",
     prompt: `Candidate Profile:\n${profileContext}\n\nVacancy Understanding:\n${vacancyContext}`,
   });
   return applyAiDraft(fallback, output, profileData);
@@ -391,9 +395,10 @@ async function renderCvPdf(snapshot: CvDraftSnapshot) {
   doc.moveDown();
   doc.fillColor("#111827").fontSize(11).text(snapshot.summary, { lineGap: 3 });
 
-  if (snapshot.skills.length > 0) {
+  const skills = topSkills(snapshot.skills);
+  if (skills.length > 0) {
     sectionTitle(doc, "Skills", accent);
-    doc.fillColor("#111827").fontSize(10).text(snapshot.skills.join(" • "), { lineGap: 2 });
+    doc.fillColor("#111827").fontSize(10).text(skills.join(" • "), { lineGap: 2 });
   }
 
   if (snapshot.experience.length > 0) {

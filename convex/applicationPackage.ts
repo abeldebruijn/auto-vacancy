@@ -263,7 +263,13 @@ function clean(value: string) {
 }
 
 function cleanList(values: string[]) {
-  return values.map(clean).filter(Boolean);
+  return values
+    .map(clean)
+    .filter(Boolean)
+    .filter(
+      (value, index, all) =>
+        all.findIndex((item) => item.toLowerCase() === value.toLowerCase()) === index,
+    );
 }
 
 function cleanParagraph(values: string[]) {

@@ -48,9 +48,17 @@ import { statusLabel } from "@/components/vacancy/vacancy-utils";
 type Proficiency = "low" | "medium" | "high" | "expert";
 type RequiredSkill = Doc<"vacancyRequiredSkills">;
 type CvDraftSnapshot = Doc<"cvDrafts">["snapshot"];
+const MAX_CV_SKILLS = 7;
 
 function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error && error.message.trim() !== "" ? error.message : fallback;
+}
+
+function limitCvSkills(draft: CvDraftSnapshot): CvDraftSnapshot {
+  return {
+    ...draft,
+    skills: draft.skills.slice(0, MAX_CV_SKILLS),
+  };
 }
 
 export function VacancyDetailApp({ slugId }: { slugId: string }) {
@@ -115,7 +123,7 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
 
     const incomingKey = `${packageDetail.cvDraft._id}:${packageDetail.cvDraft.revision}`;
     if (incomingKey !== cvDraftServerKey || !cvDraftDirty) {
-      setCvDraft(packageDetail.cvDraft.snapshot);
+      setCvDraft(limitCvSkills(packageDetail.cvDraft.snapshot));
       setCvDraftServerKey(incomingKey);
       setCvDraftDirty(false);
     }
@@ -234,7 +242,7 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
   }
 
   function updateCvDraft(nextDraft: CvDraftSnapshot) {
-    setCvDraft(nextDraft);
+    setCvDraft(limitCvSkills(nextDraft));
     setCvDraftDirty(true);
   }
 
@@ -623,7 +631,7 @@ function CvDraftWorkspace({
       <StringListEditor
         label="Skills"
         values={draft.skills}
-        maxItems={7}
+        maxItems={MAX_CV_SKILLS}
         onChange={(skills) => onChange({ ...draft, skills })}
       />
       <ExperienceDraftEditor draft={draft} onChange={onChange} />
@@ -843,7 +851,12 @@ function ExperienceDraftEditor({
             label="Story"
             value={experience.bullets.join("\n")}
             onChange={(story) =>
-              replaceExperience(draft, index, { ...experience, bullets: story.split("\n") }, onChange)
+              replaceExperience(
+                draft,
+                index,
+                { ...experience, bullets: story.split("\n") },
+                onChange,
+              )
             }
           />
         </div>
