@@ -57,14 +57,14 @@ export function StartProfileScreen({
 
             <label className="flex min-h-72 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 px-6 text-center transition-colors hover:bg-muted/50">
               <Upload className="mb-3 size-8 text-muted-foreground" />
-              <span className="font-medium">Upload markdown CV</span>
+              <span className="font-medium">Upload CV</span>
               <span className="mt-2 max-w-72 text-sm text-muted-foreground">
-                Select a `.md` file. PDF and DOCX support comes later; markdown is supported now.
+                Select a `.md` or PDF file. PDFs are converted to markdown before extraction.
               </span>
               <input
                 className="sr-only"
                 type="file"
-                accept=".md"
+                accept=".md,application/pdf,.pdf"
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (file) onFileImport(file);

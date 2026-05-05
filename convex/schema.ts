@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { cvDraftSnapshotValidator } from "./applicationPackageModel";
 import { profileInputValidator } from "./profileModel";
 
 export default defineSchema({
@@ -177,4 +178,42 @@ export default defineSchema({
     answer: v.union(v.string(), v.null()),
     sortOrder: v.number(),
   }).index("by_vacancyUnderstandingId", ["vacancyUnderstandingId"]),
+
+  applicationPackages: defineTable({
+    ownerToken: v.string(),
+    vacancyUnderstandingId: v.id("vacancyUnderstandings"),
+    profileId: v.id("candidateProfiles"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_ownerToken", ["ownerToken"])
+    .index("by_ownerToken_and_vacancyUnderstandingId", ["ownerToken", "vacancyUnderstandingId"]),
+
+  cvDrafts: defineTable({
+    ownerToken: v.string(),
+    applicationPackageId: v.id("applicationPackages"),
+    vacancyUnderstandingId: v.id("vacancyUnderstandings"),
+    profileId: v.id("candidateProfiles"),
+    snapshot: cvDraftSnapshotValidator,
+    revision: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_applicationPackageId", ["applicationPackageId"])
+    .index("by_ownerToken_and_vacancyUnderstandingId", ["ownerToken", "vacancyUnderstandingId"]),
+
+  cvPdfVersions: defineTable({
+    ownerToken: v.string(),
+    applicationPackageId: v.id("applicationPackages"),
+    cvDraftId: v.id("cvDrafts"),
+    vacancyUnderstandingId: v.id("vacancyUnderstandings"),
+    profileId: v.id("candidateProfiles"),
+    draftRevision: v.number(),
+    draftSnapshot: cvDraftSnapshotValidator,
+    storageId: v.id("_storage"),
+    filename: v.string(),
+    generatedAt: v.number(),
+  })
+    .index("by_applicationPackageId", ["applicationPackageId"])
+    .index("by_ownerToken_and_vacancyUnderstandingId", ["ownerToken", "vacancyUnderstandingId"]),
 });
