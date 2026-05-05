@@ -68,6 +68,12 @@ function modelId() {
   return process.env.AI_GATEWAY_MODEL ?? "openai/gpt-5.5";
 }
 
+function aiDraftErrorMessage(error: unknown) {
+  return error instanceof Error && error.message.trim() !== ""
+    ? error.message
+    : "Unknown AI generation error";
+}
+
 function period(args: {
   fromYear: number | null;
   fromMonth?: number | null;
@@ -277,7 +283,8 @@ export const generateCvDraft = action({
     try {
       snapshot = await buildAiDraft(detail, profileData, fallback);
     } catch (error) {
-      console.warn("AI CV Draft generation failed; using fallback draft", error);
+      console.warn("AI CV Draft generation failed", error);
+      throw new Error(`AI CV Draft generation failed. ${aiDraftErrorMessage(error)}`);
     }
     return await ctx.runMutation(internal.applicationPackage.upsertGeneratedCvDraft, {
       ownerToken,
@@ -308,7 +315,8 @@ export const regenerateCvDraft = action({
     try {
       snapshot = await buildAiDraft(detail, profileData, fallback);
     } catch (error) {
-      console.warn("AI CV Draft regeneration failed; using fallback draft", error);
+      console.warn("AI CV Draft regeneration failed", error);
+      throw new Error(`AI CV Draft regeneration failed. ${aiDraftErrorMessage(error)}`);
     }
     return await ctx.runMutation(internal.applicationPackage.upsertGeneratedCvDraft, {
       ownerToken,

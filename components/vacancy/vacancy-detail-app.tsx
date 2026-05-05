@@ -841,9 +841,9 @@ function ExperienceDraftEditor({
           </div>
           <CvTextArea
             label="Story"
-            value={experience.bullets.join(" ")}
+            value={experience.bullets.join("\n")}
             onChange={(story) =>
-              replaceExperience(draft, index, { ...experience, bullets: [story] }, onChange)
+              replaceExperience(draft, index, { ...experience, bullets: story.split("\n") }, onChange)
             }
           />
         </div>
