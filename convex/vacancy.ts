@@ -225,6 +225,42 @@ function detailUpdatesFromAnswer(args: {
   return patch;
 }
 
+async function persistQuestionAnswer(
+  ctx: MutationCtx,
+  questionId: Id<"vacancyQuestions">,
+  rawAnswer: string,
+) {
+  const ownerToken = await requireOwnerToken(ctx);
+  const question = await ctx.db.get(questionId);
+  if (question === null || question.ownerToken !== ownerToken) {
+    throw new Error("Question not found");
+  }
+  const answer = rawAnswer.trim();
+  if (answer === "") {
+    throw new Error("Answer cannot be empty");
+  }
+  const vacancy = await getOwnedVacancy(ctx, question.vacancyUnderstandingId, ownerToken);
+  const detailPatch = detailUpdatesFromAnswer({
+    shortPrompt: question.shortPrompt,
+    prompt: question.prompt,
+    answer,
+    current: {
+      companyName: vacancy.companyName,
+      title: vacancy.title,
+      coverLetterAddressee: vacancy.coverLetterAddressee,
+    },
+  });
+  const now = Date.now();
+  await ctx.db.patch(question._id, {
+    answer,
+    answeredAt: now,
+  });
+  await ctx.db.patch(vacancy._id, {
+    ...detailPatch,
+    updatedAt: now,
+  });
+}
+
 export const create = mutation({
   args: { vacancyText: v.string() },
   returns: v.id("vacancyUnderstandings"),
@@ -441,36 +477,37 @@ export const answerQuestion = mutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await persistQuestionAnswer(ctx, args.questionId, args.answer);
+    return null;
+  },
+});
+
+export const updateQuestionAnswer = mutation({
+  args: {
+    questionId: v.id("vacancyQuestions"),
+    answer: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await persistQuestionAnswer(ctx, args.questionId, args.answer);
+    return null;
+  },
+});
+
+export const deleteQuestion = mutation({
+  args: {
+    questionId: v.id("vacancyQuestions"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
     const ownerToken = await requireOwnerToken(ctx);
     const question = await ctx.db.get(args.questionId);
     if (question === null || question.ownerToken !== ownerToken) {
       throw new Error("Question not found");
     }
-    const answer = args.answer.trim();
-    if (answer === "") {
-      throw new Error("Answer cannot be empty");
-    }
     const vacancy = await getOwnedVacancy(ctx, question.vacancyUnderstandingId, ownerToken);
-    const detailPatch = detailUpdatesFromAnswer({
-      shortPrompt: question.shortPrompt,
-      prompt: question.prompt,
-      answer,
-      current: {
-        companyName: vacancy.companyName,
-        title: vacancy.title,
-        coverLetterAddressee: vacancy.coverLetterAddressee,
-      },
-    });
-    await ctx.db.patch(question._id, {
-      answer,
-      answeredAt: Date.now(),
-    });
-    if (Object.keys(detailPatch).length > 0) {
-      await ctx.db.patch(vacancy._id, {
-        ...detailPatch,
-        updatedAt: Date.now(),
-      });
-    }
+    await ctx.db.delete(question._id);
+    await ctx.db.patch(vacancy._id, { updatedAt: Date.now() });
     return null;
   },
 });

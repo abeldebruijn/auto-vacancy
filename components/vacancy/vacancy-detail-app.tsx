@@ -12,6 +12,7 @@ import {
   Download,
   ExternalLink,
   FileText,
+  Pencil,
   Plus,
   RefreshCw,
   Save,
@@ -40,14 +41,26 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { statusLabel } from "@/components/vacancy/vacancy-utils";
+import { toast } from "sonner";
 
 type Proficiency = "low" | "medium" | "high" | "expert";
 type RequiredSkill = Doc<"vacancyRequiredSkills">;
@@ -105,6 +118,8 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
   );
   const profileData = useQuery(api.profile.get);
   const setArchived = useMutation(api.vacancy.setArchived);
+  const updateQuestionAnswer = useMutation(api.vacancy.updateQuestionAnswer);
+  const deleteQuestion = useMutation(api.vacancy.deleteQuestion);
   const addProfileSkill = useMutation(api.profile.addSkill);
   const getOrCreateApplicationPackage = useMutation(api.applicationPackage.getOrCreateForVacancy);
   const uploadPackagePictureUrl = useMutation(
@@ -128,6 +143,11 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
   const [packageStatus, setPackageStatus] = useState<string | null>(null);
   const [packagePictureUrl, setPackagePictureUrl] = useState("");
   const packageReady = packageDetail !== undefined && packageDetail !== null;
+  const candidateSkillLabels =
+    profileData === undefined || profileData === null
+      ? []
+      : profileData.skills.map((skill) => skill.name);
+  const vacancySkillLabels = detail?.requiredSkills.map((skill) => skill.name) ?? [];
 
   useEffect(() => {
     if (packageDetail === undefined) return;
@@ -252,6 +272,49 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
     } finally {
       setCvActionPending(false);
     }
+  }
+
+  async function updatePackageFromVacancyQuestions() {
+    if (detail === undefined || detail === null || cvActionPending) return;
+    const hasDraft = packageDetail?.cvDraft !== null && packageDetail?.cvDraft !== undefined;
+    const confirmed = !hasDraft
+      ? true
+      : window.confirm("Regenerate the CV Draft? This overwrites your saved edits.");
+    if (!confirmed) return;
+    setCvActionPending(true);
+    setCvStatus(hasDraft ? "Regenerating CV Draft..." : "Generating CV Draft...");
+    try {
+      if (hasDraft) {
+        await regenerateCvDraft({ vacancyUnderstandingId: detail.vacancy._id });
+        setCvStatus("CV Draft regenerated.");
+      } else {
+        await generateCvDraft({ vacancyUnderstandingId: detail.vacancy._id });
+        setCvStatus("CV Draft generated.");
+      }
+    } catch (error) {
+      setCvStatus(errorMessage(error, "CV Draft update failed."));
+    } finally {
+      setCvActionPending(false);
+    }
+  }
+
+  function promptPackageUpdateToast() {
+    toast("Vacancy Questions updated.", {
+      action: {
+        label: "Update Application Package",
+        onClick: () => void updatePackageFromVacancyQuestions(),
+      },
+    });
+  }
+
+  async function saveVacancyQuestion(questionId: Id<"vacancyQuestions">, answer: string) {
+    await updateQuestionAnswer({ questionId, answer });
+    promptPackageUpdateToast();
+  }
+
+  async function removeVacancyQuestion(questionId: Id<"vacancyQuestions">) {
+    await deleteQuestion({ questionId });
+    promptPackageUpdateToast();
   }
 
   async function overwriteCvDraft() {
@@ -403,6 +466,8 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
                   packageStatus={packageStatus}
                   packagePictureUrl={packagePictureUrl}
                   pdfVersions={packageDetail?.pdfVersions ?? []}
+                  candidateSkillLabels={candidateSkillLabels}
+                  vacancySkillLabels={vacancySkillLabels}
                   status={cvStatus}
                   pending={cvActionPending}
                   onPackagePictureUrlChange={setPackagePictureUrl}
@@ -442,12 +507,12 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
                 <p className="text-sm text-muted-foreground">No questions were needed.</p>
               ) : (
                 detail.questions.map((question) => (
-                  <div key={question._id} className="rounded-md border bg-white p-4">
-                    <p className="font-medium">{question.prompt}</p>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {question.answer ?? "No answer yet."}
-                    </p>
-                  </div>
+                  <VacancyQuestionItem
+                    key={question._id}
+                    question={question}
+                    onSave={saveVacancyQuestion}
+                    onDelete={removeVacancyQuestion}
+                  />
                 ))
               )}
             </CardContent>
@@ -587,6 +652,8 @@ function CvDraftWorkspace({
   packageStatus,
   packagePictureUrl,
   pdfVersions,
+  candidateSkillLabels,
+  vacancySkillLabels,
   status,
   pending,
   onPackagePictureUrlChange,
@@ -605,6 +672,8 @@ function CvDraftWorkspace({
   packageStatus: string | null;
   packagePictureUrl: string;
   pdfVersions: (Doc<"cvPdfVersions"> & { downloadUrl: string | null })[];
+  candidateSkillLabels: string[];
+  vacancySkillLabels: string[];
   status: string | null;
   pending: boolean;
   onPackagePictureUrlChange: (value: string) => void;
@@ -683,11 +752,6 @@ function CvDraftWorkspace({
 
       <div className="grid gap-3 md:grid-cols-2">
         <CvField
-          label="Name"
-          value={draft.name}
-          onChange={(name) => onChange({ ...draft, name })}
-        />
-        <CvField
           label="Title"
           value={draft.title}
           onChange={(title) => onChange({ ...draft, title })}
@@ -708,7 +772,7 @@ function CvDraftWorkspace({
           onChange={(email) => onChange({ ...draft, email: email.trim() === "" ? null : email })}
         />
         <CvField
-          label="Location"
+          label="Location of residence"
           value={draft.location ?? ""}
           onChange={(location) =>
             onChange({ ...draft, location: location.trim() === "" ? null : location })
@@ -726,7 +790,7 @@ function CvDraftWorkspace({
           options={["a4", "letter"]}
           onChange={(paper) => onChange({ ...draft, paper: paper as CvDraftSnapshot["paper"] })}
         />
-        <CvField
+        <ColorField
           label="Accent"
           value={draft.accent}
           onChange={(accent) => onChange({ ...draft, accent })}
@@ -743,9 +807,11 @@ function CvDraftWorkspace({
         values={draft.links}
         onChange={(links) => onChange({ ...draft, links })}
       />
-      <StringListEditor
+      <SkillListEditor
         label="Skills"
         values={draft.skills}
+        candidateSkillLabels={candidateSkillLabels}
+        vacancySkillLabels={vacancySkillLabels}
         maxItems={MAX_CV_SKILLS}
         onChange={(skills) => onChange({ ...draft, skills })}
       />
@@ -877,6 +943,38 @@ function CvField({
   );
 }
 
+function ColorField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const id = useId();
+  const colorValue = /^#[0-9a-f]{6}$/i.test(value) ? value : "#2563eb";
+  return (
+    <div className="grid gap-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="flex items-center gap-2">
+        <Input
+          id={id}
+          className="h-9 w-16 shrink-0 p-1"
+          type="color"
+          value={colorValue}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <Input
+          aria-label={`${label} hex value`}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </div>
+    </div>
+  );
+}
+
 function CvTextArea({
   label,
   value,
@@ -989,6 +1087,163 @@ function StringListEditor({
   );
 }
 
+function SkillListEditor({
+  label,
+  values,
+  candidateSkillLabels,
+  vacancySkillLabels,
+  maxItems,
+  onChange,
+}: {
+  label: string;
+  values: string[];
+  candidateSkillLabels: string[];
+  vacancySkillLabels: string[];
+  maxItems: number;
+  onChange: (values: string[]) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const canAdd = values.length < maxItems;
+  const used = new Set(values.map((value) => value.trim().toLowerCase()).filter(Boolean));
+  const candidateOptions = uniqueSkillLabels(candidateSkillLabels).filter(
+    (skill) => !used.has(skill.toLowerCase()),
+  );
+  const vacancyOptions = uniqueSkillLabels(vacancySkillLabels).filter(
+    (skill) => !used.has(skill.toLowerCase()),
+  );
+  const hasOptions = candidateOptions.length > 0 || vacancyOptions.length > 0;
+
+  function replaceSkill(index: number, value: string) {
+    onChange(values.map((item, itemIndex) => (itemIndex === index ? value : item)));
+  }
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <Label>{label}</Label>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            {values.length}/{maxItems}
+          </span>
+          <CollapsibleTrigger
+            render={
+              <Button type="button" size="sm" variant="outline">
+                {isOpen ? "Hide" : "Edit"}
+                <ChevronDown className={isOpen ? "size-3.5 rotate-180" : "size-3.5"} />
+              </Button>
+            }
+          />
+        </div>
+      </div>
+      {!isOpen ? (
+        <div className="rounded-md border bg-white px-3 py-2 text-sm">
+          {values[0] ?? "No skills selected."}
+        </div>
+      ) : null}
+      <CollapsibleContent>
+        <div className="space-y-2">
+          {values.map((value, index) => (
+            <div key={index} className="flex gap-2">
+              <SkillSelector
+                value={value}
+                candidateOptions={candidateOptions}
+                vacancyOptions={vacancyOptions}
+                onChange={(next) => replaceSkill(index, next)}
+              />
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                aria-label="Remove skill"
+                onClick={() => onChange(values.filter((_, itemIndex) => itemIndex !== index))}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          ))}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={!canAdd || !hasOptions}
+            onClick={() => {
+              const next = vacancyOptions[0] ?? candidateOptions[0];
+              if (next !== undefined) onChange([...values, next]);
+            }}
+          >
+            <Plus className="size-3.5" />
+            Add
+          </Button>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function SkillSelector({
+  value,
+  candidateOptions,
+  vacancyOptions,
+  onChange,
+}: {
+  value: string;
+  candidateOptions: string[];
+  vacancyOptions: string[];
+  onChange: (value: string) => void;
+}) {
+  const fallbackValue = value.trim() === "" ? "__empty" : value;
+  return (
+    <Select value={fallbackValue} onValueChange={(next) => next && onChange(next)}>
+      <SelectTrigger className="min-w-0 flex-1">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {value.trim() !== "" ? (
+          <SelectItem value={value}>{value}</SelectItem>
+        ) : (
+          <SelectItem value="__empty">Select skill</SelectItem>
+        )}
+        {vacancyOptions.length > 0 ? (
+          <SelectGroup>
+            <SelectLabel>Vacancy skills</SelectLabel>
+            {vacancyOptions.map((skill) => (
+              <SelectItem key={`vacancy-${skill}`} value={skill}>
+                {skill}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        ) : null}
+        {candidateOptions.length > 0 ? (
+          <>
+            <SelectSeparator />
+            <SelectGroup>
+              <SelectLabel>Candidate Profile skills</SelectLabel>
+              {candidateOptions.map((skill) => (
+                <SelectItem key={`profile-${skill}`} value={skill}>
+                  {skill}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </>
+        ) : null}
+      </SelectContent>
+    </Select>
+  );
+}
+
+function uniqueSkillLabels(values: string[]) {
+  const seen = new Set<string>();
+  const labels: string[] = [];
+  for (const value of values) {
+    const trimmed = value.trim();
+    const key = trimmed.toLowerCase();
+    if (trimmed === "" || seen.has(key)) continue;
+    seen.add(key);
+    labels.push(trimmed);
+  }
+  return labels;
+}
+
 function ExperienceDraftEditor({
   draft,
   onChange,
@@ -996,89 +1251,139 @@ function ExperienceDraftEditor({
   draft: CvDraftSnapshot;
   onChange: (draft: CvDraftSnapshot) => void;
 }) {
+  const [editingIndex, setEditingIndex] = useState<number | "new" | null>(null);
+  const [editingExperience, setEditingExperience] = useState<
+    CvDraftSnapshot["experience"][number] | null
+  >(null);
+
+  function openEditor(index: number | "new") {
+    setEditingIndex(index);
+    setEditingExperience(
+      index === "new"
+        ? {
+            sourceExperienceId: null,
+            company: "",
+            role: "",
+            period: "",
+            bullets: [""],
+          }
+        : draft.experience[index],
+    );
+  }
+
+  function closeEditor() {
+    setEditingIndex(null);
+    setEditingExperience(null);
+  }
+
+  function saveEditor() {
+    if (editingExperience === null || editingIndex === null) return;
+    if (editingIndex === "new") {
+      onChange({ ...draft, experience: [...draft.experience, editingExperience] });
+    } else {
+      replaceExperience(draft, editingIndex, editingExperience, onChange);
+    }
+    closeEditor();
+  }
+
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <Label>Experience</Label>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() =>
-            onChange({
-              ...draft,
-              experience: [
-                ...draft.experience,
-                {
-                  sourceExperienceId: null,
-                  company: "",
-                  role: "",
-                  period: "",
-                  bullets: [""],
-                },
-              ],
-            })
-          }
-        >
+        <Button type="button" size="sm" variant="outline" onClick={() => openEditor("new")}>
           <Plus className="size-3.5" />
           Add experience
         </Button>
       </div>
-      {draft.experience.map((experience, index) => (
-        <div key={index} className="space-y-3 rounded-md border bg-white p-3">
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="ghost"
-              aria-label="Remove experience"
-              onClick={() =>
-                onChange({
-                  ...draft,
-                  experience: draft.experience.filter((_, itemIndex) => itemIndex !== index),
-                })
-              }
-            >
-              <Trash2 className="size-4" />
+      <div className="space-y-2">
+        {draft.experience.map((experience, index) => (
+          <div
+            key={index}
+            className="grid gap-3 rounded-md border bg-white p-3 sm:grid-cols-[minmax(0,1fr)_auto]"
+          >
+            <button type="button" className="min-w-0 text-left" onClick={() => openEditor(index)}>
+              <p className="font-medium">
+                {experience.company || "Untitled company"} · {experience.role || "Untitled role"}
+              </p>
+              <p className="text-sm text-muted-foreground">{experience.period || "No period"}</p>
+              <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                {experience.bullets.filter(Boolean).join(" ") || "No story yet."}
+              </p>
+            </button>
+            <div className="flex items-start justify-end gap-1">
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                aria-label="Edit experience"
+                onClick={() => openEditor(index)}
+              >
+                <Pencil className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                aria-label="Remove experience"
+                onClick={() =>
+                  onChange({
+                    ...draft,
+                    experience: draft.experience.filter((_, itemIndex) => itemIndex !== index),
+                  })
+                }
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <Dialog open={editingExperience !== null} onOpenChange={(open) => !open && closeEditor()}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingIndex === "new" ? "Add experience" : "Edit experience"}
+            </DialogTitle>
+            <DialogDescription>Keep the CV story concise and vacancy-specific.</DialogDescription>
+          </DialogHeader>
+          {editingExperience !== null ? (
+            <div className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-3">
+                <CvField
+                  label="Company"
+                  value={editingExperience.company}
+                  onChange={(company) => setEditingExperience({ ...editingExperience, company })}
+                />
+                <CvField
+                  label="Role"
+                  value={editingExperience.role}
+                  onChange={(role) => setEditingExperience({ ...editingExperience, role })}
+                />
+                <CvField
+                  label="Period"
+                  value={editingExperience.period}
+                  onChange={(period) => setEditingExperience({ ...editingExperience, period })}
+                />
+              </div>
+              <CvTextArea
+                label="Story"
+                value={editingExperience.bullets.join("\n")}
+                onChange={(story) =>
+                  setEditingExperience({ ...editingExperience, bullets: story.split("\n") })
+                }
+              />
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closeEditor}>
+              Cancel
             </Button>
-          </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            <CvField
-              label="Company"
-              value={experience.company}
-              onChange={(company) =>
-                replaceExperience(draft, index, { ...experience, company }, onChange)
-              }
-            />
-            <CvField
-              label="Role"
-              value={experience.role}
-              onChange={(role) =>
-                replaceExperience(draft, index, { ...experience, role }, onChange)
-              }
-            />
-            <CvField
-              label="Period"
-              value={experience.period}
-              onChange={(period) =>
-                replaceExperience(draft, index, { ...experience, period }, onChange)
-              }
-            />
-          </div>
-          <CvTextArea
-            label="Story"
-            value={experience.bullets.join("\n")}
-            onChange={(story) =>
-              replaceExperience(
-                draft,
-                index,
-                { ...experience, bullets: story.split("\n") },
-                onChange,
-              )
-            }
-          />
-        </div>
-      ))}
+            <Button type="button" onClick={saveEditor}>
+              Save experience
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
@@ -1090,84 +1395,156 @@ function EducationDraftEditor({
   draft: CvDraftSnapshot;
   onChange: (draft: CvDraftSnapshot) => void;
 }) {
+  const [editingIndex, setEditingIndex] = useState<number | "new" | null>(null);
+  const [editingEducation, setEditingEducation] = useState<
+    CvDraftSnapshot["education"][number] | null
+  >(null);
+
+  function openEditor(index: number | "new") {
+    setEditingIndex(index);
+    setEditingEducation(
+      index === "new"
+        ? {
+            sourceEducationId: null,
+            school: "",
+            degree: "",
+            period: "",
+            details: [""],
+          }
+        : draft.education[index],
+    );
+  }
+
+  function closeEditor() {
+    setEditingIndex(null);
+    setEditingEducation(null);
+  }
+
+  function saveEditor() {
+    if (editingEducation === null || editingIndex === null) return;
+    if (editingIndex === "new") {
+      onChange({ ...draft, education: [...draft.education, editingEducation] });
+    } else {
+      replaceEducation(draft, editingIndex, editingEducation, onChange);
+    }
+    closeEditor();
+  }
+
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <Label>Education</Label>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() =>
-            onChange({
-              ...draft,
-              education: [
-                ...draft.education,
-                {
-                  sourceEducationId: null,
-                  school: "",
-                  degree: "",
-                  period: "",
-                  details: [""],
-                },
-              ],
-            })
-          }
-        >
+        <Button type="button" size="sm" variant="outline" onClick={() => openEditor("new")}>
           <Plus className="size-3.5" />
           Add education
         </Button>
       </div>
-      {draft.education.map((education, index) => (
-        <div key={index} className="space-y-3 rounded-md border bg-white p-3">
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="ghost"
-              aria-label="Remove education"
-              onClick={() =>
-                onChange({
-                  ...draft,
-                  education: draft.education.filter((_, itemIndex) => itemIndex !== index),
-                })
-              }
-            >
-              <Trash2 className="size-4" />
+      <div className="rounded-md border bg-white">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>School</TableHead>
+              <TableHead>Degree</TableHead>
+              <TableHead>Period</TableHead>
+              <TableHead>Details</TableHead>
+              <TableHead className="w-24 text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {draft.education.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-muted-foreground">
+                  No education yet.
+                </TableCell>
+              </TableRow>
+            ) : (
+              draft.education.map((education, index) => (
+                <TableRow key={index}>
+                  <TableCell className="font-medium">{education.school || "Untitled"}</TableCell>
+                  <TableCell>{education.degree || "Untitled"}</TableCell>
+                  <TableCell>{education.period || "No period"}</TableCell>
+                  <TableCell className="max-w-xs truncate">
+                    {education.details.filter(Boolean).join(" · ") || "No details"}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label="Edit education"
+                        onClick={() => openEditor(index)}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label="Remove education"
+                        onClick={() =>
+                          onChange({
+                            ...draft,
+                            education: draft.education.filter(
+                              (_, itemIndex) => itemIndex !== index,
+                            ),
+                          })
+                        }
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      <Dialog open={editingEducation !== null} onOpenChange={(open) => !open && closeEditor()}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingIndex === "new" ? "Add education" : "Edit education"}</DialogTitle>
+            <DialogDescription>
+              Update the education details used in the CV Draft.
+            </DialogDescription>
+          </DialogHeader>
+          {editingEducation !== null ? (
+            <div className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-3">
+                <CvField
+                  label="School"
+                  value={editingEducation.school}
+                  onChange={(school) => setEditingEducation({ ...editingEducation, school })}
+                />
+                <CvField
+                  label="Degree"
+                  value={editingEducation.degree}
+                  onChange={(degree) => setEditingEducation({ ...editingEducation, degree })}
+                />
+                <CvField
+                  label="Period"
+                  value={editingEducation.period}
+                  onChange={(period) => setEditingEducation({ ...editingEducation, period })}
+                />
+              </div>
+              <StringListEditor
+                label="Details"
+                values={editingEducation.details}
+                onChange={(details) => setEditingEducation({ ...editingEducation, details })}
+              />
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={closeEditor}>
+              Cancel
             </Button>
-          </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            <CvField
-              label="School"
-              value={education.school}
-              onChange={(school) =>
-                replaceEducation(draft, index, { ...education, school }, onChange)
-              }
-            />
-            <CvField
-              label="Degree"
-              value={education.degree}
-              onChange={(degree) =>
-                replaceEducation(draft, index, { ...education, degree }, onChange)
-              }
-            />
-            <CvField
-              label="Period"
-              value={education.period}
-              onChange={(period) =>
-                replaceEducation(draft, index, { ...education, period }, onChange)
-              }
-            />
-          </div>
-          <StringListEditor
-            label="Details"
-            values={education.details}
-            onChange={(details) =>
-              replaceEducation(draft, index, { ...education, details }, onChange)
-            }
-          />
-        </div>
-      ))}
+            <Button type="button" onClick={saveEditor}>
+              Save education
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
@@ -1203,42 +1580,165 @@ function PdfVersionHistory({
 }: {
   versions: (Doc<"cvPdfVersions"> & { downloadUrl: string | null })[];
 }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [latest, ...previous] = versions;
+
   return (
-    <section className="space-y-2">
-      <Label>PDF Versions</Label>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <Label>PDF Versions</Label>
+        {previous.length > 0 ? (
+          <CollapsibleTrigger
+            render={
+              <Button type="button" size="sm" variant="outline">
+                {isOpen ? "Hide previous" : `Show previous (${previous.length})`}
+                <ChevronDown className={isOpen ? "size-3.5 rotate-180" : "size-3.5"} />
+              </Button>
+            }
+          />
+        ) : null}
+      </div>
       {versions.length === 0 ? (
         <p className="text-sm text-muted-foreground">No PDF Versions generated yet.</p>
       ) : (
         <div className="divide-y rounded-md border bg-white">
-          {versions.map((version, index) => (
-            <div
-              key={version._id}
-              className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm"
-            >
-              <div>
-                <p className="font-medium">{index === 0 ? "Latest PDF" : "Previous PDF"}</p>
-                <p className="text-muted-foreground">
-                  {new Date(version.generatedAt).toLocaleString()} · revision{" "}
-                  {version.draftRevision}
-                </p>
-              </div>
-              {version.downloadUrl !== null ? (
-                <a
-                  className={buttonVariants({ variant: "outline", size: "sm" })}
-                  href={version.downloadUrl}
-                  download={version.filename}
-                >
-                  <Download className="size-3.5" />
-                  Download
-                </a>
-              ) : (
-                <Badge variant="secondary">Unavailable</Badge>
-              )}
-            </div>
-          ))}
+          {latest !== undefined ? <PdfVersionRow version={latest} label="Latest PDF" /> : null}
+          <CollapsibleContent keepMounted>
+            {isOpen
+              ? previous.map((version) => (
+                  <PdfVersionRow key={version._id} version={version} label="Previous PDF" />
+                ))
+              : null}
+          </CollapsibleContent>
         </div>
       )}
-    </section>
+    </Collapsible>
+  );
+}
+
+function PdfVersionRow({
+  version,
+  label,
+}: {
+  version: Doc<"cvPdfVersions"> & { downloadUrl: string | null };
+  label: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 p-3 text-sm">
+      <div>
+        <p className="font-medium">{label}</p>
+        <p className="text-muted-foreground">
+          {new Date(version.generatedAt).toLocaleString()} · revision {version.draftRevision}
+        </p>
+      </div>
+      {version.downloadUrl !== null ? (
+        <a
+          className={buttonVariants({ variant: "outline", size: "sm" })}
+          href={version.downloadUrl}
+          download={version.filename}
+        >
+          <Download className="size-3.5" />
+          Download
+        </a>
+      ) : (
+        <Badge variant="secondary">Unavailable</Badge>
+      )}
+    </div>
+  );
+}
+
+function VacancyQuestionItem({
+  question,
+  onSave,
+  onDelete,
+}: {
+  question: Doc<"vacancyQuestions">;
+  onSave: (questionId: Id<"vacancyQuestions">, answer: string) => Promise<void>;
+  onDelete: (questionId: Id<"vacancyQuestions">) => Promise<void>;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [answer, setAnswer] = useState(question.answer ?? "");
+  const [status, setStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAnswer(question.answer ?? "");
+  }, [question.answer]);
+
+  async function save() {
+    setStatus("Saving answer...");
+    try {
+      await onSave(question._id, answer);
+      setStatus(null);
+      setIsEditing(false);
+    } catch (error) {
+      setStatus(errorMessage(error, "Failed to save answer."));
+    }
+  }
+
+  async function remove() {
+    const confirmed = window.confirm("Delete this Vacancy Question?");
+    if (!confirmed) return;
+    setStatus("Deleting question...");
+    try {
+      await onDelete(question._id);
+      setStatus(null);
+    } catch (error) {
+      setStatus(errorMessage(error, "Failed to delete question."));
+    }
+  }
+
+  return (
+    <div className="rounded-md border bg-white p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-medium">{question.prompt}</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {question.answer ?? "No answer yet."}
+          </p>
+        </div>
+        <div className="flex shrink-0 gap-1">
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Edit Vacancy Question"
+            onClick={() => setIsEditing(true)}
+          >
+            <Pencil className="size-4" />
+          </Button>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            aria-label="Delete Vacancy Question"
+            onClick={() => void remove()}
+          >
+            <Trash2 className="size-4" />
+          </Button>
+        </div>
+      </div>
+      {status !== null ? <p className="mt-2 text-sm text-muted-foreground">{status}</p> : null}
+      <Dialog open={isEditing} onOpenChange={setIsEditing}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Vacancy Question</DialogTitle>
+            <DialogDescription>Changes stay on the Vacancy Understanding.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="rounded-md border bg-muted/30 p-3 text-sm">{question.prompt}</div>
+            <CvTextArea label="Answer" value={answer} onChange={setAnswer} />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
+              Cancel
+            </Button>
+            <Button type="button" disabled={answer.trim() === ""} onClick={() => void save()}>
+              Save answer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
