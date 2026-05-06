@@ -113,7 +113,11 @@ function SpecifyVacancyWorkspace({
       ) ?? []
     );
   }, [detail?.questions]);
-  const activeQuestion = pendingQuestions[activeIndex] ?? pendingQuestions[0] ?? null;
+  const safeActiveIndex =
+    pendingQuestions.length === 0
+      ? 0
+      : Math.min(activeIndex, Math.max(0, pendingQuestions.length - 1));
+  const activeQuestion = pendingQuestions[safeActiveIndex] ?? null;
   const requiredQuestionsRemaining = pendingQuestions.filter(
     (question) => question.required,
   ).length;
@@ -124,14 +128,6 @@ function SpecifyVacancyWorkspace({
     analysisStartedRef.current = true;
     void startAnalysis({ vacancyUnderstandingId: detail.vacancy._id });
   }, [detail?.vacancy._id, detail?.vacancy.status, startAnalysis]);
-
-  useEffect(() => {
-    if (pendingQuestions.length === 0) {
-      setActiveIndex(0);
-      return;
-    }
-    if (activeIndex >= pendingQuestions.length) setActiveIndex(0);
-  }, [activeIndex, pendingQuestions.length]);
 
   useEffect(() => {
     if (!exitingQuestion) return;
@@ -261,71 +257,58 @@ function SpecifyVacancyWorkspace({
         <DetectedDetailsPanel detail={detail} />
       </div>
 
-      {isComposerVisible ? (
-        <section className="absolute inset-x-0 bottom-0 z-40 px-3 pb-3 sm:px-8 sm:pb-8">
-          <div className="relative mx-auto max-w-5xl">
-            <WorkflowUtilityPanel
-              detail={detail}
-              message={message}
-              homepageUrl={homepageUrl}
-              isRetryingAnalysis={isRetryingAnalysis}
-              onHomepageChange={setHomepageUrl}
-              onHomepageSubmit={submitHomepage}
-              onRetry={() => void retryAnalysis()}
-              onFinish={() => void finish()}
-              onOpenDetails={() =>
-                router.push(vacancyReviewPath(detail.vacancy.slug, detail.vacancy._id))
-              }
-              requiredQuestionsRemaining={requiredQuestionsRemaining}
-              docked
-            />
-            <QuestionStack count={pendingQuestions.length} />
-            {exitingQuestion ? <ExitingComposer question={exitingQuestion} /> : null}
-            {activeQuestion ? (
-              <QuestionComposer
-                question={activeQuestion}
-                draft={answerDrafts[activeQuestion._id] ?? ""}
-                count={pendingQuestions.length}
-                activeIndex={activeIndex}
-                onDraftChange={(value) =>
-                  setAnswerDrafts((drafts) => ({
-                    ...drafts,
-                    [activeQuestion._id]: value,
-                  }))
-                }
-                onMove={(direction) => {
-                  setExitingQuestion(activeQuestion);
-                  setActiveIndex((index) => {
-                    if (pendingQuestions.length <= 1) return 0;
-                    return (index + direction + pendingQuestions.length) % pendingQuestions.length;
-                  });
-                }}
-                onSubmit={() => void submitAnswer(activeQuestion._id)}
-              />
-            ) : null}
-          </div>
-        </section>
-      ) : (
-        <section className="absolute inset-x-0 bottom-0 z-40 px-3 pb-3 sm:px-8 sm:pb-8">
-          <div className="relative mx-auto max-w-5xl">
-            <WorkflowUtilityPanel
-              detail={detail}
-              message={message}
-              homepageUrl={homepageUrl}
-              isRetryingAnalysis={isRetryingAnalysis}
-              onHomepageChange={setHomepageUrl}
-              onHomepageSubmit={submitHomepage}
-              onRetry={() => void retryAnalysis()}
-              onFinish={() => void finish()}
-              onOpenDetails={() =>
-                router.push(vacancyReviewPath(detail.vacancy.slug, detail.vacancy._id))
-              }
-              requiredQuestionsRemaining={requiredQuestionsRemaining}
-              docked
-            />
-          </div>
-        </section>
-      )}
+      <section className="absolute inset-x-0 bottom-0 z-40 px-3 pb-3 sm:px-8 sm:pb-8">
+        <div className="relative mx-auto max-w-5xl">
+          <WorkflowUtilityPanel
+            detail={detail}
+            message={message}
+            homepageUrl={homepageUrl}
+            isRetryingAnalysis={isRetryingAnalysis}
+            onHomepageChange={setHomepageUrl}
+            onHomepageSubmit={submitHomepage}
+            onRetry={() => void retryAnalysis()}
+            onFinish={() => void finish()}
+            onOpenDetails={() =>
+              router.push(vacancyReviewPath(detail.vacancy.slug, detail.vacancy._id))
+            }
+            requiredQuestionsRemaining={requiredQuestionsRemaining}
+            docked
+          />
+          {isComposerVisible ? (
+            <>
+              <QuestionStack count={pendingQuestions.length} />
+              {exitingQuestion ? <ExitingComposer question={exitingQuestion} /> : null}
+              {activeQuestion ? (
+                <QuestionComposer
+                  question={activeQuestion}
+                  draft={answerDrafts[activeQuestion._id] ?? ""}
+                  count={pendingQuestions.length}
+                  activeIndex={safeActiveIndex}
+                  onDraftChange={(value) =>
+                    setAnswerDrafts((drafts) => ({
+                      ...drafts,
+                      [activeQuestion._id]: value,
+                    }))
+                  }
+                  onMove={(direction) => {
+                    setExitingQuestion(activeQuestion);
+                    setActiveIndex((index) => {
+                      if (pendingQuestions.length <= 1) return 0;
+                      return (index + direction + pendingQuestions.length) % pendingQuestions.length;
+                    });
+                  }}
+                  onSubmit={() => {
+                    setExitingQuestion(activeQuestion);
+                    window.setTimeout(() => {
+                      void submitAnswer(activeQuestion._id);
+                    }, 500);
+                  }}
+                />
+              ) : null}
+            </>
+          ) : null}
+        </div>
+      </section>
     </main>
   );
 }
@@ -741,6 +724,7 @@ function AnswerField({
   const fieldRef = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState({ width: 1200, height: 720 });
   const [positions, setPositions] = useState<Record<string, Position>>({});
+  const positionsRef = useRef<Record<string, Position>>({});
   const [zoom, setZoom] = useState(1);
   const sceneScale = size.width < 480 ? 0.82 : size.width < 640 ? 0.9 : 1;
 
@@ -769,12 +753,16 @@ function AnswerField({
 
   useEffect(() => {
     if (answers.length === 0) {
-      setPositions({});
+      setPositions((current) => {
+        if (Object.keys(current).length === 0) return current;
+        positionsRef.current = {};
+        return {};
+      });
       return;
     }
 
     const nodes: SimNode[] = answers.map((answer, index) => {
-      const existing = positions[answer._id];
+      const existing = positionsRef.current[answer._id];
       const cardWidth = estimateCardWidth(answer, size.width);
       const cardHeight = estimateCardHeight(answer, size.width);
       return {
@@ -818,6 +806,7 @@ function AnswerField({
             return [node.id, { x, y }];
           }),
         );
+        positionsRef.current = nextPositions;
         setPositions(nextPositions);
       });
 

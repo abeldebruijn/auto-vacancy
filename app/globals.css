@@ -199,6 +199,45 @@
   .av-panel-flash {
     animation: av-panel-flash 900ms ease-out;
   }
+
+  .composer-exit {
+    animation: composer-exit 500ms ease-out forwards;
+  }
+
+  .floating-answer-drift {
+    --floating-answer-effective-drift-x: var(--floating-answer-drift-x, 0px);
+    --floating-answer-effective-drift-y: var(--floating-answer-drift-y, 0px);
+    animation: floating-answer-drift var(--floating-answer-drift-duration, 7.6s) ease-in-out
+      var(--floating-answer-drift-delay, 0s) infinite alternate;
+  }
+
+  .floating-answer-card:hover .floating-answer-drift {
+    box-shadow: 0 22px 62px rgba(91, 94, 170, 0.18);
+  }
+
+  .floating-answer-card:focus-visible .floating-answer-drift {
+    box-shadow:
+      0 18px 54px rgba(91, 94, 170, 0.12),
+      0 0 0 4px rgba(91, 95, 240, 0.12);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .av-panel-flash {
+      animation: none !important;
+    }
+
+    .composer-exit {
+      animation: none !important;
+      transition: none !important;
+      transform: none !important;
+    }
+
+    .floating-answer-drift {
+      --floating-answer-effective-drift-x: calc(var(--floating-answer-drift-x, 0px) * 0.16);
+      --floating-answer-effective-drift-y: calc(var(--floating-answer-drift-y, 0px) * 0.16);
+      animation-duration: 10s;
+    }
+  }
 }
 
 @keyframes av-panel-flash {
@@ -214,35 +253,6 @@
       0 0 0 12px rgba(86, 87, 232, 0),
       var(--av-shadow-control);
     background: rgba(255, 255, 255, 0.9);
-  }
-}
-
-.composer-exit {
-  animation: composer-exit 500ms ease-out forwards;
-}
-
-.floating-answer-drift {
-  --floating-answer-effective-drift-x: var(--floating-answer-drift-x, 0px);
-  --floating-answer-effective-drift-y: var(--floating-answer-drift-y, 0px);
-  animation: floating-answer-drift var(--floating-answer-drift-duration, 7.6s) ease-in-out
-    var(--floating-answer-drift-delay, 0s) infinite alternate;
-}
-
-.floating-answer-card:hover .floating-answer-drift {
-  box-shadow: 0 22px 62px rgba(91, 94, 170, 0.18);
-}
-
-.floating-answer-card:focus-visible .floating-answer-drift {
-  box-shadow:
-    0 18px 54px rgba(91, 94, 170, 0.12),
-    0 0 0 4px rgba(91, 95, 240, 0.12);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .floating-answer-drift {
-    --floating-answer-effective-drift-x: calc(var(--floating-answer-drift-x, 0px) * 0.16);
-    --floating-answer-effective-drift-y: calc(var(--floating-answer-drift-y, 0px) * 0.16);
-    animation-duration: 10s;
   }
 }
 
