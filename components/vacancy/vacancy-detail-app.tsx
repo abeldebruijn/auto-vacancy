@@ -2,7 +2,6 @@
 
 import { useEffect, useId, useState } from "react";
 import { Authenticated, Unauthenticated, useAction, useMutation, useQuery } from "convex/react";
-import { SignInButton } from "@clerk/nextjs";
 import {
   Archive,
   ArchiveRestore,
@@ -19,6 +18,7 @@ import {
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { AppHeader } from "@/components/profile/app-header";
+import { SignInAction } from "@/components/auth/auth-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,9 +75,7 @@ export function VacancyDetailApp({ slugId }: { slugId: string }) {
               <CardTitle>Sign in to view this Vacancy</CardTitle>
             </CardHeader>
             <CardContent>
-              <SignInButton mode="modal">
-                <Button>Sign in</Button>
-              </SignInButton>
+              <SignInAction />
             </CardContent>
           </Card>
         </main>

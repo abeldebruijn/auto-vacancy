@@ -2,7 +2,6 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Authenticated, Unauthenticated, useAction, useMutation, useQuery } from "convex/react";
-import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import {
   BriefcaseBusiness,
   Camera,
@@ -86,6 +85,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Field, ListField, Panel, TextArea } from "@/components/profile/profile-form-fields";
+import { SignInAction, SignUpAction } from "@/components/auth/auth-actions";
 import {
   EducationFormBody,
   ExperienceFormBody,
@@ -110,14 +110,8 @@ export function ProfileApp() {
             </CardHeader>
             <CardContent>
               <div className="grid gap-2">
-                <SignInButton mode="modal">
-                  <Button className="w-full">Sign in</Button>
-                </SignInButton>
-                <SignUpButton mode="modal">
-                  <Button className="w-full" variant="outline">
-                    Create account
-                  </Button>
-                </SignUpButton>
+                <SignInAction className="w-full" />
+                <SignUpAction className="w-full" />
               </div>
             </CardContent>
           </Card>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import { Authenticated, Unauthenticated, useAction, useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, FileText, Upload } from "lucide-react";
@@ -22,6 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { SignInAction, SignUpAction } from "@/components/auth/auth-actions";
 import { AppHeader } from "@/components/profile/app-header";
 import { StartProfileScreen } from "@/components/profile/start-profile-screen";
 import { statusLabel, vacancyReviewPath } from "@/components/vacancy/vacancy-utils";
@@ -370,14 +370,8 @@ function PublicHome() {
             Letters for each Vacancy.
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
-            <SignInButton mode="modal">
-              <Button className="w-full">Sign in</Button>
-            </SignInButton>
-            <SignUpButton mode="modal">
-              <Button className="w-full" variant="outline">
-                Create account
-              </Button>
-            </SignUpButton>
+            <SignInAction className="w-full" />
+            <SignUpAction className="w-full" />
           </div>
         </CardContent>
       </Card>
