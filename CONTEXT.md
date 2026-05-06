@@ -20,6 +20,10 @@ _Avoid_: Imported Vacancy, Imported CV
 An intermediate interpretation of one Vacancy containing company identity, research, requirements, and Job Seeker answers before an Application Package exists.
 _Avoid_: Application draft, workflow run
 
+**Vacancy Questions**:
+Clarification prompts and Job Seeker answers attached to one Vacancy Understanding.
+_Avoid_: Application Package questions, CV Draft questions
+
 **Candidate Profile**:
 The reusable source of truth for a Job Seeker's experience, skills, education, and facts.
 _Avoid_: Base CV, resume, profile
@@ -37,7 +41,7 @@ Extracted Candidate Profile facts from an Imported CV that wait for Job Seeker a
 _Avoid_: Draft profile, pending import
 
 **Application Package**:
-A vacancy-specific set of generated materials prepared from a Vacancy and Candidate Profile.
+A persisted vacancy-specific workspace for generated materials and package-specific presentation choices.
 _Avoid_: Application draft, tailored documents, submission
 
 **CV Draft**:
@@ -65,12 +69,14 @@ _Avoid_: Motivation letter
 - A **Replacement Preview** becomes the **Candidate Profile** only after Job Seeker approval.
 - A **Vacancy Source** may be used to fill the **Vacancy** description before creating a **Vacancy Understanding**.
 - A **Job Seeker** creates one **Vacancy Understanding** from one **Vacancy** before preparing an **Application Package**.
+- A **Vacancy Understanding** may contain **Vacancy Questions** before or after the **Application Package** exists.
 - A **Job Seeker** prepares one **Application Package** for a **Vacancy**.
 - An **Application Package** is derived from exactly one **Vacancy** and one **Candidate Profile**.
 - An **Application Package** may contain one active **CV Draft**.
 - A **CV Draft** is a snapshot; later **Candidate Profile** changes do not rewrite it.
 - A **CV Draft** may produce one or more **PDF Versions**.
 - An **Application Package** contains a tailored **CV** and **Cover Letter**.
+- An **Application Package** may inherit Candidate Profile facts while overriding package-specific presentation choices.
 - Auto Vacancy prepares application materials; employer submission happens outside the system.
 
 ## Example dialogue
@@ -92,4 +98,6 @@ _Avoid_: Motivation letter
 - A **Vacancy Source** describes a **Vacancy**; an **Imported CV** describes the Job Seeker's reusable facts.
 - A **Replacement Preview** is not yet the **Candidate Profile**; it is a proposed replacement.
 - A **Vacancy Understanding** is not yet an **Application Package**; it captures research and clarifications before generated materials exist.
+- **Vacancy Questions** belong to the **Vacancy Understanding**; changing them can make an **Application Package** stale but does not directly edit the **CV Draft**.
 - **Application Package** does not imply employer submission; submission is outside current scope.
+- "Profile picture" on the **Candidate Profile** is the reusable default; a package picture is specific to one **Application Package**.

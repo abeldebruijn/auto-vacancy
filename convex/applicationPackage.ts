@@ -1,8 +1,15 @@
 import { v } from "convex/values";
 import { internalMutation, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
-import { cvDraftSnapshotValidator } from "./applicationPackageModel";
+import type { Doc, Id } from "./_generated/dataModel";
+import {
+  applicationPackageProfilePictureOverrideValidator,
+  cvDraftSnapshotValidator,
+} from "./applicationPackageModel";
+
+type ProfilePictureOverride = typeof applicationPackageProfilePictureOverrideValidator.type;
+
+const defaultProfilePictureOverride = { kind: "inherit" } satisfies ProfilePictureOverride;
 
 const applicationPackageOutputValidator = v.object({
   _id: v.id("applicationPackages"),
@@ -10,6 +17,7 @@ const applicationPackageOutputValidator = v.object({
   ownerToken: v.string(),
   vacancyUnderstandingId: v.id("vacancyUnderstandings"),
   profileId: v.id("candidateProfiles"),
+  profilePictureOverride: applicationPackageProfilePictureOverrideValidator,
   createdAt: v.number(),
   updatedAt: v.number(),
 });
@@ -48,9 +56,18 @@ const packageDetailOutputValidator = v.union(
     applicationPackage: applicationPackageOutputValidator,
     cvDraft: v.union(cvDraftOutputValidator, v.null()),
     pdfVersions: v.array(cvPdfVersionOutputValidator),
+    pictureUrl: v.union(v.string(), v.null()),
   }),
   v.null(),
 );
+
+function normalizeApplicationPackage(applicationPackage: Doc<"applicationPackages">) {
+  return {
+    ...applicationPackage,
+    profilePictureOverride:
+      applicationPackage.profilePictureOverride ?? defaultProfilePictureOverride,
+  };
+}
 
 async function requireOwnerToken(ctx: QueryCtx | MutationCtx) {
   const identity = await ctx.auth.getUserIdentity();
@@ -95,6 +112,21 @@ async function getDraftByPackage(
     .unique();
 }
 
+async function resolvePictureUrl(
+  ctx: QueryCtx | MutationCtx,
+  profile: Doc<"candidateProfiles">,
+  override: ProfilePictureOverride,
+) {
+  if (override.kind === "none") return null;
+  if (override.kind === "url") return override.url;
+  if (override.kind === "storage") return await ctx.storage.getUrl(override.storageId);
+  if (profile.profilePicture.kind === "storage") {
+    return await ctx.storage.getUrl(profile.profilePicture.storageId);
+  }
+  if (profile.profilePicture.kind === "url") return profile.profilePicture.url;
+  return null;
+}
+
 async function ensurePackage(
   ctx: MutationCtx,
   ownerToken: string,
@@ -102,12 +134,21 @@ async function ensurePackage(
 ) {
   const vacancy = await getOwnedVacancy(ctx, vacancyUnderstandingId, ownerToken);
   const existing = await getPackageByVacancy(ctx, ownerToken, vacancyUnderstandingId);
-  if (existing !== null) return existing;
+  if (existing !== null) {
+    if (existing.profilePictureOverride === undefined) {
+      await ctx.db.patch(existing._id, {
+        profilePictureOverride: defaultProfilePictureOverride,
+        updatedAt: Date.now(),
+      });
+    }
+    return normalizeApplicationPackage(existing);
+  }
   const now = Date.now();
   const applicationPackageId = await ctx.db.insert("applicationPackages", {
     ownerToken,
     vacancyUnderstandingId,
     profileId: vacancy.profileId,
+    profilePictureOverride: { kind: "inherit" },
     createdAt: now,
     updatedAt: now,
   });
@@ -115,7 +156,7 @@ async function ensurePackage(
   if (created === null) {
     throw new Error("Application Package was not created");
   }
-  return created;
+  return normalizeApplicationPackage(created);
 }
 
 export const getByVacancy = query({
@@ -130,11 +171,14 @@ export const getByVacancy = query({
       args.vacancyUnderstandingId,
     );
     if (applicationPackage === null) return null;
-    const cvDraft = await getDraftByPackage(ctx, applicationPackage._id);
+    const normalizedPackage = normalizeApplicationPackage(applicationPackage);
+    const profile = await ctx.db.get(normalizedPackage.profileId);
+    if (profile === null || profile.ownerToken !== ownerToken) return null;
+    const cvDraft = await getDraftByPackage(ctx, normalizedPackage._id);
     const versions = await ctx.db
       .query("cvPdfVersions")
       .withIndex("by_applicationPackageId", (q) =>
-        q.eq("applicationPackageId", applicationPackage._id),
+        q.eq("applicationPackageId", normalizedPackage._id),
       )
       .collect();
     const pdfVersions = await Promise.all(
@@ -145,7 +189,59 @@ export const getByVacancy = query({
           downloadUrl: await ctx.storage.getUrl(version.storageId),
         })),
     );
-    return { applicationPackage, cvDraft, pdfVersions };
+    return {
+      applicationPackage: normalizedPackage,
+      cvDraft,
+      pdfVersions,
+      pictureUrl: await resolvePictureUrl(ctx, profile, normalizedPackage.profilePictureOverride),
+    };
+  },
+});
+
+export const getOrCreateForVacancy = mutation({
+  args: { vacancyUnderstandingId: v.id("vacancyUnderstandings") },
+  returns: v.object({
+    applicationPackage: applicationPackageOutputValidator,
+    pictureUrl: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx, args) => {
+    const ownerToken = await requireOwnerToken(ctx);
+    const applicationPackage = await ensurePackage(ctx, ownerToken, args.vacancyUnderstandingId);
+    const profile = await ctx.db.get(applicationPackage.profileId);
+    if (profile === null || profile.ownerToken !== ownerToken) {
+      throw new Error("Candidate Profile not found");
+    }
+    return {
+      applicationPackage,
+      pictureUrl: await resolvePictureUrl(ctx, profile, applicationPackage.profilePictureOverride),
+    };
+  },
+});
+
+export const setProfilePictureOverride = mutation({
+  args: {
+    vacancyUnderstandingId: v.id("vacancyUnderstandings"),
+    profilePictureOverride: applicationPackageProfilePictureOverrideValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const ownerToken = await requireOwnerToken(ctx);
+    await getOwnedVacancy(ctx, args.vacancyUnderstandingId, ownerToken);
+    const applicationPackage = await ensurePackage(ctx, ownerToken, args.vacancyUnderstandingId);
+    await ctx.db.patch(applicationPackage._id, {
+      profilePictureOverride: args.profilePictureOverride,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+export const generateProfilePictureUploadUrl = mutation({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => {
+    await requireOwnerToken(ctx);
+    return await ctx.storage.generateUploadUrl();
   },
 });
 
