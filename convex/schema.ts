@@ -1,6 +1,9 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { cvDraftSnapshotValidator } from "./applicationPackageModel";
+import {
+  applicationPackageProfilePictureOverrideValidator,
+  cvDraftSnapshotValidator,
+} from "./applicationPackageModel";
 import { profileInputValidator } from "./profileModel";
 
 export default defineSchema({
@@ -183,6 +186,7 @@ export default defineSchema({
     ownerToken: v.string(),
     vacancyUnderstandingId: v.id("vacancyUnderstandings"),
     profileId: v.id("candidateProfiles"),
+    profilePictureOverride: v.optional(applicationPackageProfilePictureOverrideValidator),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

@@ -5,8 +5,11 @@ import { VacancyDetailApp } from "@/components/vacancy/vacancy-detail-app";
 
 const apiMock = vi.hoisted(() => ({
   applicationPackage: {
+    generateProfilePictureUploadUrl: "generateProfilePictureUploadUrl",
     getByVacancy: "getApplicationPackageByVacancy",
+    getOrCreateForVacancy: "getOrCreateForVacancy",
     saveCvDraft: "saveCvDraft",
+    setProfilePictureOverride: "setProfilePictureOverride",
   },
   applicationPackageAgents: {
     generateCvDraft: "generateCvDraft",
@@ -18,20 +21,28 @@ const apiMock = vi.hoisted(() => ({
     get: "getProfile",
   },
   vacancy: {
+    deleteQuestion: "deleteQuestion",
     getBySlugId: "getVacancyBySlugId",
     setArchived: "setArchived",
+    updateQuestionAnswer: "updateQuestionAnswer",
   },
 }));
 
 const mocks = vi.hoisted(() => ({
   addSkill: vi.fn(),
+  deleteQuestion: vi.fn(),
   generateCvDraft: vi.fn(),
   generateCvPdfVersion: vi.fn(),
+  generateProfilePictureUploadUrl: vi.fn(),
+  getOrCreateForVacancy: vi.fn(),
   packageDetail: null as unknown,
   profileData: null as unknown,
   regenerateCvDraft: vi.fn(),
   saveCvDraft: vi.fn(),
   setArchived: vi.fn(),
+  setProfilePictureOverride: vi.fn(),
+  toast: vi.fn(),
+  updateQuestionAnswer: vi.fn(),
   vacancyDetail: null as unknown,
 }));
 
@@ -54,8 +65,19 @@ vi.mock("convex/react", () => ({
     return vi.fn();
   },
   useMutation: (mutationName: string) => {
+    if (mutationName === apiMock.applicationPackage.getOrCreateForVacancy) {
+      return mocks.getOrCreateForVacancy;
+    }
+    if (mutationName === apiMock.applicationPackage.generateProfilePictureUploadUrl) {
+      return mocks.generateProfilePictureUploadUrl;
+    }
+    if (mutationName === apiMock.applicationPackage.setProfilePictureOverride) {
+      return mocks.setProfilePictureOverride;
+    }
     if (mutationName === apiMock.applicationPackage.saveCvDraft) return mocks.saveCvDraft;
     if (mutationName === apiMock.profile.addSkill) return mocks.addSkill;
+    if (mutationName === apiMock.vacancy.updateQuestionAnswer) return mocks.updateQuestionAnswer;
+    if (mutationName === apiMock.vacancy.deleteQuestion) return mocks.deleteQuestion;
     if (mutationName === apiMock.vacancy.setArchived) return mocks.setArchived;
     return vi.fn();
   },
@@ -70,6 +92,11 @@ vi.mock("convex/react", () => ({
 vi.mock("@clerk/nextjs", () => ({
   SignInButton: ({ children }: { children: ReactNode }) => children,
   UserButton: () => null,
+}));
+
+vi.mock("sonner", () => ({
+  toast: (...args: unknown[]) => mocks.toast(...args),
+  Toaster: () => null,
 }));
 
 const vacancyDetail = {
@@ -135,14 +162,33 @@ const draftSnapshot = {
 describe("VacancyDetailApp Application Package", () => {
   beforeEach(() => {
     mocks.addSkill.mockReset();
+    mocks.deleteQuestion.mockReset();
     mocks.generateCvDraft.mockReset();
     mocks.generateCvPdfVersion.mockReset();
+    mocks.generateProfilePictureUploadUrl.mockReset();
+    mocks.getOrCreateForVacancy.mockReset();
     mocks.regenerateCvDraft.mockReset();
     mocks.saveCvDraft.mockReset();
     mocks.setArchived.mockReset();
+    mocks.setProfilePictureOverride.mockReset();
+    mocks.toast.mockReset();
+    mocks.updateQuestionAnswer.mockReset();
     mocks.vacancyDetail = vacancyDetail;
     mocks.profileData = { experiences: [], skills: [] };
     mocks.packageDetail = null;
+    mocks.getOrCreateForVacancy.mockResolvedValue({
+      applicationPackage: {
+        _id: "package-1",
+        _creationTime: 1,
+        createdAt: 1,
+        ownerToken: "owner",
+        profileId: "profile-1",
+        profilePictureOverride: { kind: "inherit" },
+        updatedAt: 1,
+        vacancyUnderstandingId: "vacancy-1",
+      },
+      pictureUrl: null,
+    });
   });
 
   it("generates a CV Draft when no Application Package exists", async () => {
@@ -168,6 +214,7 @@ describe("VacancyDetailApp Application Package", () => {
         createdAt: 1,
         ownerToken: "owner",
         profileId: "profile-1",
+        profilePictureOverride: { kind: "inherit" },
         updatedAt: 1,
         vacancyUnderstandingId: "vacancy-1",
       },
@@ -199,12 +246,41 @@ describe("VacancyDetailApp Application Package", () => {
           storageId: "storage-1",
           vacancyUnderstandingId: "vacancy-1",
         },
+        {
+          _id: "version-0",
+          _creationTime: 1,
+          applicationPackageId: "package-1",
+          cvDraftId: "draft-1",
+          downloadUrl: "https://files.example/cv-old.pdf",
+          draftRevision: 0,
+          draftSnapshot,
+          filename: "cv-old.pdf",
+          generatedAt: Date.UTC(2026, 0, 1),
+          ownerToken: "owner",
+          profileId: "profile-1",
+          storageId: "storage-0",
+          vacancyUnderstandingId: "vacancy-1",
+        },
       ],
+      pictureUrl: "https://files.example/profile.jpg",
+    };
+    mocks.profileData = { experiences: [], skills: [{ name: "Accessibility" }] };
+    mocks.vacancyDetail = {
+      ...vacancyDetail,
+      requiredSkills: [{ _id: "skill-1", name: "Next.js", kind: "hard", matchStatus: "missing" }],
     };
     mocks.saveCvDraft.mockResolvedValue(null);
     mocks.generateCvPdfVersion.mockResolvedValue("version-2");
 
     render(<VacancyDetailApp slugId="acme-vacancy-1" />);
+
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Location of residence")).toBeInTheDocument();
+    expect(screen.getByLabelText("Accent")).toHaveAttribute("type", "color");
+    expect(screen.getAllByText("React").length).toBeGreaterThan(0);
+    expect(screen.queryByText("TypeScript")).not.toBeInTheDocument();
+    expect(screen.getByText(/show previous/i)).toBeInTheDocument();
+    expect(screen.queryByText(/previous pdf/i)).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Summary"), {
       target: { value: "Updated tailored summary." },
@@ -222,5 +298,63 @@ describe("VacancyDetailApp Application Package", () => {
     );
     expect(screen.getByText(/latest pdf/i)).toBeInTheDocument();
     expect(screen.queryByText(/json/i)).not.toBeInTheDocument();
+  });
+
+  it("edits Vacancy Questions and offers to update the Application Package", async () => {
+    mocks.packageDetail = {
+      applicationPackage: {
+        _id: "package-1",
+        _creationTime: 1,
+        createdAt: 1,
+        ownerToken: "owner",
+        profileId: "profile-1",
+        profilePictureOverride: { kind: "inherit" },
+        updatedAt: 1,
+        vacancyUnderstandingId: "vacancy-1",
+      },
+      cvDraft: null,
+      pdfVersions: [],
+      pictureUrl: null,
+    };
+    mocks.vacancyDetail = {
+      ...vacancyDetail,
+      questions: [
+        {
+          _id: "question-1",
+          _creationTime: 1,
+          answer: "Old answer",
+          answeredAt: 1,
+          ownerToken: "owner",
+          prompt: "Which frontend project is strongest?",
+          reason: "Tailoring",
+          required: false,
+          shortPrompt: "Strong project",
+          sortOrder: 0,
+          vacancyUnderstandingId: "vacancy-1",
+        },
+      ],
+    };
+    mocks.updateQuestionAnswer.mockResolvedValue(null);
+
+    render(<VacancyDetailApp slugId="acme-vacancy-1" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /edit vacancy question/i }));
+    fireEvent.change(screen.getByLabelText("Answer"), {
+      target: { value: "  New answer  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save answer/i }));
+
+    await waitFor(() =>
+      expect(mocks.updateQuestionAnswer).toHaveBeenCalledWith({
+        questionId: "question-1",
+        answer: "  New answer  ",
+      }),
+    );
+    expect(mocks.toast).toHaveBeenCalledWith(
+      "Vacancy Questions updated.",
+      expect.objectContaining({
+        action: expect.objectContaining({ label: "Update Application Package" }),
+      }),
+    );
   });
 });
