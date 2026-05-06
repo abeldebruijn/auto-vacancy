@@ -1,8 +1,47 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { SignInAction } from "@/components/auth/auth-actions";
+import { AppHeader } from "@/components/profile/app-header";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
+import { statusLabel } from "@/components/vacancy/vacancy-utils";
+import { api } from "@/convex/_generated/api";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { Authenticated, Unauthenticated, useAction, useMutation, useQuery } from "convex/react";
-import { SignInButton } from "@clerk/nextjs";
 import {
   Archive,
   ArchiveRestore,
@@ -20,46 +59,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { api } from "@/convex/_generated/api";
-import type { Doc, Id } from "@/convex/_generated/dataModel";
-import { AppHeader } from "@/components/profile/app-header";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
-import { statusLabel } from "@/components/vacancy/vacancy-utils";
+import { useEffect, useId, useState } from "react";
 import { toast } from "sonner";
 
 type Proficiency = "low" | "medium" | "high" | "expert";
@@ -97,9 +97,7 @@ export function VacancyDetailApp({ slugId }: { slugId: string }) {
               <CardTitle>Sign in to view this Vacancy</CardTitle>
             </CardHeader>
             <CardContent>
-              <SignInButton mode="modal">
-                <Button>Sign in</Button>
-              </SignInButton>
+              <SignInAction />
             </CardContent>
           </Card>
         </main>
@@ -169,7 +167,9 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
   useEffect(() => {
     if (detail === undefined || detail === null) return;
     if (packageDetail !== null) return;
-    void getOrCreateApplicationPackage({ vacancyUnderstandingId: detail.vacancy._id }).catch(() => {
+    void getOrCreateApplicationPackage({
+      vacancyUnderstandingId: detail.vacancy._id,
+    }).catch(() => {
       setPackageStatus("Failed to prepare Application Package.");
     });
   }, [detail, getOrCreateApplicationPackage, packageDetail]);
@@ -249,7 +249,9 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
       if (!response.ok) {
         throw new Error(`Upload failed with status ${response.status}`);
       }
-      const { storageId } = (await response.json()) as { storageId: Id<"_storage"> };
+      const { storageId } = (await response.json()) as {
+        storageId: Id<"_storage">;
+      };
       await setPackagePictureOverride({
         vacancyUnderstandingId: detail.vacancy._id,
         profilePictureOverride: { kind: "storage", storageId },
@@ -345,7 +347,10 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
     setCvActionPending(true);
     setCvStatus("Saving CV Draft...");
     try {
-      await saveCvDraft({ cvDraftId: packageDetail.cvDraft._id, snapshot: cvDraft });
+      await saveCvDraft({
+        cvDraftId: packageDetail.cvDraft._id,
+        snapshot: cvDraft,
+      });
       setCvStatus("CV Draft saved.");
     } catch (error) {
       setCvStatus(errorMessage(error, "CV Draft save failed."));
@@ -366,7 +371,10 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
     setCvActionPending(true);
     setCvStatus("Generating PDF...");
     try {
-      await saveCvDraft({ cvDraftId: packageDetail.cvDraft._id, snapshot: cvDraft });
+      await saveCvDraft({
+        cvDraftId: packageDetail.cvDraft._id,
+        snapshot: cvDraft,
+      });
       await generateCvPdfVersion({ cvDraftId: packageDetail.cvDraft._id });
       setCvStatus("PDF Version generated.");
     } catch (error) {
@@ -775,7 +783,10 @@ function CvDraftWorkspace({
           label="Location of residence"
           value={draft.location ?? ""}
           onChange={(location) =>
-            onChange({ ...draft, location: location.trim() === "" ? null : location })
+            onChange({
+              ...draft,
+              location: location.trim() === "" ? null : location,
+            })
           }
         />
         <CvSelect
@@ -909,7 +920,10 @@ function ProfilePicturePackageControl({
               variant="outline"
               disabled={!packageReady || packagePictureUrl.trim() === ""}
               onClick={() =>
-                onPackagePictureOverride({ kind: "url", url: packagePictureUrl.trim() })
+                onPackagePictureOverride({
+                  kind: "url",
+                  url: packagePictureUrl.trim(),
+                })
               }
             >
               Save URL
@@ -1279,7 +1293,10 @@ function ExperienceDraftEditor({
   function saveEditor() {
     if (editingExperience === null || editingIndex === null) return;
     if (editingIndex === "new") {
-      onChange({ ...draft, experience: [...draft.experience, editingExperience] });
+      onChange({
+        ...draft,
+        experience: [...draft.experience, editingExperience],
+      });
     } else {
       replaceExperience(draft, editingIndex, editingExperience, onChange);
     }
@@ -1369,7 +1386,10 @@ function ExperienceDraftEditor({
                 label="Story"
                 value={editingExperience.bullets.join("\n")}
                 onChange={(story) =>
-                  setEditingExperience({ ...editingExperience, bullets: story.split("\n") })
+                  setEditingExperience({
+                    ...editingExperience,
+                    bullets: story.split("\n"),
+                  })
                 }
               />
             </div>
