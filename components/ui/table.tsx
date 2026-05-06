@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
-    <div data-slot="table-container" className="relative w-full overflow-x-auto">
+    <div data-slot="table-container" className="relative w-full overflow-x-auto rounded-md">
       <table
         data-slot="table"
         className={cn("w-full caption-bottom text-sm", className)}
@@ -45,7 +45,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "border-b transition-colors hover:bg-muted/50 has-aria-expanded:bg-muted/50 data-[state=selected]:bg-muted",
+        "border-b border-[#e9edf8] transition-colors hover:bg-[#f7f9ff]/70 has-aria-expanded:bg-[#f7f9ff]/70 data-[state=selected]:bg-[#eef2ff]",
         className,
       )}
       {...props}
@@ -58,7 +58,7 @@ function TableHead({ className, ...props }: React.ComponentProps<"th">) {
     <th
       data-slot="table-head"
       className={cn(
-        "h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground [&:has([role=checkbox])]:pr-0",
+        "h-10 bg-[#f7f9ff]/60 px-2 text-left align-middle font-medium whitespace-nowrap text-[#303348] [&:has([role=checkbox])]:pr-0",
         className,
       )}
       {...props}

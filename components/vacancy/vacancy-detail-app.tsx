@@ -85,7 +85,7 @@ function limitCvSkills(draft: CvDraftSnapshot): CvDraftSnapshot {
 
 export function VacancyDetailApp({ slugId }: { slugId: string }) {
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-950">
+    <div className="av-app-shell text-[#171827]">
       <AppHeader logoHref="/" />
       <Authenticated>
         <VacancyDetailWorkspace slugId={slugId} />

@@ -28,7 +28,7 @@ import { statusLabel, vacancyReviewPath } from "@/components/vacancy/vacancy-uti
 
 export function HomeApp() {
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-950">
+    <div className="av-app-shell text-[#171827]">
       <AppHeader />
       <Authenticated>
         <HomeWorkspace />
@@ -97,7 +97,10 @@ function HomeWorkspace() {
         method: "POST",
         body: formData,
       });
-      const result = (await response.json()) as { markdown?: string; error?: string };
+      const result = (await response.json()) as {
+        markdown?: string;
+        error?: string;
+      };
 
       if (!response.ok || typeof result.markdown !== "string") {
         throw new Error(result.error ?? "Could not convert Imported CV.");
@@ -118,7 +121,9 @@ function HomeWorkspace() {
     }
     setVacancyStatus("Creating Vacancy Understanding...");
     try {
-      const vacancyUnderstandingId = await createVacancy({ vacancyText: trimmed });
+      const vacancyUnderstandingId = await createVacancy({
+        vacancyText: trimmed,
+      });
       router.push(`/specify-vacancy/${vacancyUnderstandingId}`);
     } catch (error) {
       setVacancyStatus(error instanceof Error ? error.message : "Could not create Vacancy.");
@@ -148,7 +153,10 @@ function HomeWorkspace() {
         method: "POST",
         body: formData,
       });
-      const result = (await response.json()) as { markdown?: string; error?: string };
+      const result = (await response.json()) as {
+        markdown?: string;
+        error?: string;
+      };
 
       if (!response.ok || typeof result.markdown !== "string") {
         throw new Error(result.error ?? "Could not convert Vacancy Source.");
@@ -191,7 +199,7 @@ function HomeWorkspace() {
 
   return (
     <main className="mx-auto grid max-w-5xl gap-6 px-4 py-8">
-      <Card className="w-full">
+      <Card className="av-hover-lift w-full">
         <CardHeader>
           <CardTitle className="text-2xl">Add a Vacancy</CardTitle>
         </CardHeader>
@@ -271,9 +279,9 @@ function VacancyTable({
   onOpen: (path: string) => void;
 }) {
   return (
-    <Card className="w-full">
+    <Card className="w-full" variant="flat">
       <CardHeader>
-        <CardTitle className="text-2xl">Vacancy Understandings</CardTitle>
+        <CardTitle className="text-xl">Vacancy Understandings</CardTitle>
         <CardAction>
           <label className="flex items-center gap-2 pt-1 text-sm font-medium text-muted-foreground">
             <Checkbox
@@ -338,7 +346,13 @@ function VacancyTable({
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => onOpen(vacancyReviewPath(vacancy.slug, vacancy._id))}
+                      onClick={() =>
+                        onOpen(
+                          vacancy.status === "asking_questions"
+                            ? `/specify-vacancy/${vacancy._id}`
+                            : vacancyReviewPath(vacancy.slug, vacancy._id),
+                        )
+                      }
                     >
                       Open
                     </Button>
@@ -356,7 +370,7 @@ function VacancyTable({
 function PublicHome() {
   return (
     <main className="mx-auto grid min-h-[calc(100vh-57px)] max-w-3xl place-items-center px-4 py-8">
-      <Card className="w-full">
+      <Card className="av-glass-strong w-full">
         <CardHeader>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <FileText className="size-4" />

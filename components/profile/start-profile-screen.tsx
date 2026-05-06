@@ -23,7 +23,7 @@ export function StartProfileScreen({
 }) {
   return (
     <main className="mx-auto grid min-h-[calc(100vh-57px)] max-w-6xl place-items-center px-4 py-8">
-      <Card className="w-full max-w-4xl">
+      <Card className="av-glass-strong w-full max-w-4xl">
         <CardHeader>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <UserRound className="size-4" />
@@ -55,7 +55,7 @@ export function StartProfileScreen({
               </Button>
             </div>
 
-            <label className="flex min-h-72 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/30 px-6 text-center transition-colors hover:bg-muted/50">
+            <label className="av-hover-lift flex min-h-72 cursor-pointer flex-col items-center justify-center rounded-md border border-dashed border-[#d7def0] bg-white/62 px-6 text-center transition-colors hover:bg-[#f7f9ff]">
               <Upload className="mb-3 size-8 text-muted-foreground" />
               <span className="font-medium">Upload CV</span>
               <span className="mt-2 max-w-72 text-sm text-muted-foreground">
@@ -93,7 +93,7 @@ export function StartProfileScreen({
               Enter manually
             </Button>
             {status && (
-              <div className="w-full rounded-md border border-border bg-muted/40 px-3 py-2 text-center text-sm text-muted-foreground">
+              <div className="av-control w-full rounded-md px-3 py-2 text-center text-sm text-muted-foreground">
                 {status}
               </div>
             )}

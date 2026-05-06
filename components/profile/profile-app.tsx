@@ -97,7 +97,7 @@ import { AppHeader } from "@/components/profile/app-header";
 
 export function ProfileApp() {
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-950">
+    <div className="av-app-shell text-[#171827]">
       <AppHeader logoHref="/" />
       <Authenticated>
         <ProfileWorkspace />
@@ -1209,7 +1209,7 @@ function ProfileWorkspace() {
           />
         </Panel>
 
-        <Panel title="Profile Picture" icon={<Camera className="size-4" />}>
+        <Panel title="Profile Picture" icon={<Camera className="size-4" />} variant="flat">
           <div className="flex items-center gap-3">
             <Avatar className="size-16 rounded-lg border border-neutral-200" size="lg">
               {profileData?.pictureUrl ? (

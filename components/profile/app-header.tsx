@@ -6,7 +6,7 @@ import { BriefcaseBusiness } from "lucide-react";
 
 export function AppHeader({ logoHref }: { logoHref?: string }) {
   return (
-    <header className="sticky top-0 z-10 border-b border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur">
+    <header className="sticky top-0 z-10 border-b border-[#dfe4f3] bg-white/86 px-4 py-3 shadow-[0_10px_34px_rgba(92,99,180,0.06)] backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
         {logoHref ? (
           <Link

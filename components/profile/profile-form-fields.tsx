@@ -1,9 +1,17 @@
 "use client";
 
 import type React from "react";
+import type { VariantProps } from "class-variance-authority";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  cardVariants,
+} from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,14 +30,16 @@ export function Panel({
   icon,
   addItem,
   children,
+  variant = "default",
 }: {
   title: string;
   icon: React.ReactNode;
   addItem?: React.ReactNode;
   children: React.ReactNode;
+  variant?: VariantProps<typeof cardVariants>["variant"];
 }) {
   return (
-    <Card>
+    <Card variant={variant}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm">
           {icon}
