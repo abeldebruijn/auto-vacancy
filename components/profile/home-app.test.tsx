@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HomeApp } from "@/components/profile/home-app";
 
 const mocks = vi.hoisted(() => ({
+  authState: "authenticated",
   importMarkdown: vi.fn(),
   createVacancy: vi.fn(),
   queryCallCount: 0,
@@ -13,8 +14,12 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("convex/react", () => ({
-  Authenticated: ({ children }: { children: ReactNode }) => children,
-  Unauthenticated: () => null,
+  AuthLoading: ({ children }: { children: ReactNode }) =>
+    mocks.authState === "loading" ? children : null,
+  Authenticated: ({ children }: { children: ReactNode }) =>
+    mocks.authState === "authenticated" ? children : null,
+  Unauthenticated: ({ children }: { children: ReactNode }) =>
+    mocks.authState === "unauthenticated" ? children : null,
   useAction: () => mocks.importMarkdown,
   useMutation: () => mocks.createVacancy,
   useQuery: () => {
@@ -24,6 +29,7 @@ vi.mock("convex/react", () => ({
 }));
 
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/",
   useRouter: () => ({
     push: mocks.push,
   }),
@@ -39,11 +45,29 @@ describe("HomeApp", () => {
   beforeEach(() => {
     mocks.importMarkdown.mockReset();
     mocks.createVacancy.mockReset();
+    mocks.authState = "authenticated";
     mocks.queryCallCount = 0;
     mocks.push.mockReset();
     mocks.profileQueryResult = null;
     mocks.vacanciesQueryResult = [];
     vi.unstubAllGlobals();
+  });
+
+  it("shows workspace loading while Convex auth is loading", () => {
+    mocks.authState = "loading";
+    render(<HomeApp />);
+
+    expect(screen.queryByText(/turn any vacancy/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /sign in/i })).not.toBeInTheDocument();
+    expect(document.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
+  });
+
+  it("shows the public homepage when auth is settled unauthenticated", () => {
+    mocks.authState = "unauthenticated";
+    render(<HomeApp />);
+
+    expect(screen.getByText(/turn any vacancy into a/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
   });
 
   it("shows the start profile screen when there is no Candidate Profile", () => {

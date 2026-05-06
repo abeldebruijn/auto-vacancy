@@ -41,7 +41,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { statusLabel } from "@/components/vacancy/vacancy-utils";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
-import { Authenticated, Unauthenticated, useAction, useMutation, useQuery } from "convex/react";
+import {
+  AuthLoading,
+  Authenticated,
+  Unauthenticated,
+  useAction,
+  useMutation,
+  useQuery,
+} from "convex/react";
 import {
   Archive,
   ArchiveRestore,
@@ -90,6 +97,14 @@ export function VacancyDetailApp({ slugId }: { slugId: string }) {
       <Authenticated>
         <VacancyDetailWorkspace slugId={slugId} />
       </Authenticated>
+      <AuthLoading>
+        <main className="mx-auto grid min-h-[calc(100vh-57px)] max-w-5xl place-items-center px-4">
+          <div className="w-full space-y-4">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+        </main>
+      </AuthLoading>
       <Unauthenticated>
         <main className="mx-auto grid min-h-[calc(100vh-57px)] max-w-xl place-items-center px-4">
           <Card>

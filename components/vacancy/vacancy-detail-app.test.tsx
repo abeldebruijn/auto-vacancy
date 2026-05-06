@@ -30,6 +30,7 @@ const apiMock = vi.hoisted(() => ({
 
 const mocks = vi.hoisted(() => ({
   addSkill: vi.fn(),
+  authState: "authenticated",
   deleteQuestion: vi.fn(),
   generateCvDraft: vi.fn(),
   generateCvPdfVersion: vi.fn(),
@@ -51,8 +52,12 @@ vi.mock("@/convex/_generated/api", () => ({
 }));
 
 vi.mock("convex/react", () => ({
-  Authenticated: ({ children }: { children: ReactNode }) => children,
-  Unauthenticated: () => null,
+  AuthLoading: ({ children }: { children: ReactNode }) =>
+    mocks.authState === "loading" ? children : null,
+  Authenticated: ({ children }: { children: ReactNode }) =>
+    mocks.authState === "authenticated" ? children : null,
+  Unauthenticated: ({ children }: { children: ReactNode }) =>
+    mocks.authState === "unauthenticated" ? children : null,
   useAction: (actionName: string) => {
     if (actionName === apiMock.applicationPackageAgents.generateCvDraft)
       return mocks.generateCvDraft;
@@ -161,6 +166,7 @@ const draftSnapshot = {
 
 describe("VacancyDetailApp Application Package", () => {
   beforeEach(() => {
+    mocks.authState = "authenticated";
     mocks.addSkill.mockReset();
     mocks.deleteQuestion.mockReset();
     mocks.generateCvDraft.mockReset();
@@ -189,6 +195,14 @@ describe("VacancyDetailApp Application Package", () => {
       },
       pictureUrl: null,
     });
+  });
+
+  it("shows loading UI while Convex auth is loading", () => {
+    mocks.authState = "loading";
+    render(<VacancyDetailApp slugId="acme-vacancy-1" />);
+
+    expect(screen.queryByText(/sign in to view this vacancy/i)).not.toBeInTheDocument();
+    expect(document.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
   });
 
   it("generates a CV Draft when no Application Package exists", async () => {

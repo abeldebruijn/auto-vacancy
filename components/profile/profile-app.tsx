@@ -1,7 +1,14 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { Authenticated, Unauthenticated, useAction, useMutation, useQuery } from "convex/react";
+import {
+  AuthLoading,
+  Authenticated,
+  Unauthenticated,
+  useAction,
+  useMutation,
+  useQuery,
+} from "convex/react";
 import {
   BriefcaseBusiness,
   Camera,
@@ -102,6 +109,14 @@ export function ProfileApp() {
       <Authenticated>
         <ProfileWorkspace />
       </Authenticated>
+      <AuthLoading>
+        <main className="grid min-h-[70vh] place-items-center">
+          <div className="w-full max-w-4xl space-y-4 px-4">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+        </main>
+      </AuthLoading>
       <Unauthenticated>
         <main className="mx-auto grid min-h-[70vh] max-w-md place-items-center px-4">
           <Card className="w-full">

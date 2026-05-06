@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Authenticated, Unauthenticated, useAction, useMutation, useQuery } from "convex/react";
+import {
+  AuthLoading,
+  Authenticated,
+  Unauthenticated,
+  useAction,
+  useMutation,
+  useQuery,
+} from "convex/react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, FileText, Upload } from "lucide-react";
 import { api } from "@/convex/_generated/api";
@@ -33,10 +40,24 @@ export function HomeApp() {
       <Authenticated>
         <HomeWorkspace />
       </Authenticated>
+      <AuthLoading>
+        <HomeWorkspaceLoading />
+      </AuthLoading>
       <Unauthenticated>
         <PublicHome />
       </Unauthenticated>
     </div>
+  );
+}
+
+function HomeWorkspaceLoading() {
+  return (
+    <main className="grid min-h-[70vh] place-items-center">
+      <div className="w-full max-w-3xl space-y-4 px-4">
+        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </div>
+    </main>
   );
 }
 
@@ -174,14 +195,7 @@ function HomeWorkspace() {
   }
 
   if (profileData === undefined) {
-    return (
-      <main className="grid min-h-[70vh] place-items-center">
-        <div className="w-full max-w-3xl space-y-4 px-4">
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-48 w-full" />
-        </div>
-      </main>
-    );
+    return <HomeWorkspaceLoading />;
   }
 
   if (profileData === null) {

@@ -19,6 +19,7 @@ const apiMock = vi.hoisted(() => ({
 }));
 
 const mocks = vi.hoisted(() => ({
+  authState: "authenticated",
   applyPreview: vi.fn(),
   importedCvs: [] as unknown[],
   profileData: null as unknown,
@@ -32,8 +33,12 @@ vi.mock("@/convex/_generated/api", () => ({
 }));
 
 vi.mock("convex/react", () => ({
-  Authenticated: ({ children }: { children: ReactNode }) => children,
-  Unauthenticated: () => null,
+  AuthLoading: ({ children }: { children: ReactNode }) =>
+    mocks.authState === "loading" ? children : null,
+  Authenticated: ({ children }: { children: ReactNode }) =>
+    mocks.authState === "authenticated" ? children : null,
+  Unauthenticated: ({ children }: { children: ReactNode }) =>
+    mocks.authState === "unauthenticated" ? children : null,
   useAction: () => vi.fn(),
   useMutation: (mutation: string) => {
     if (mutation === apiMock.profile.applyImportedCvPreview) return mocks.applyPreview;
@@ -131,12 +136,21 @@ const profileData = {
 
 describe("ProfileApp", () => {
   beforeEach(() => {
+    mocks.authState = "authenticated";
     mocks.applyPreview.mockReset();
     mocks.saveProfile.mockReset();
     mocks.uploadUrl.mockReset();
     mocks.setPicture.mockReset();
     mocks.importedCvs = [];
     mocks.profileData = profileData;
+  });
+
+  it("shows loading UI while Convex auth is loading", () => {
+    mocks.authState = "loading";
+    render(<ProfileApp />);
+
+    expect(screen.queryByText(/sign in to build your candidate profile/i)).not.toBeInTheDocument();
+    expect(document.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
   });
 
   it("hides Imported CV errors and collapses older history", async () => {
