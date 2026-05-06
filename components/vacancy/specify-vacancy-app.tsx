@@ -127,6 +127,9 @@ function SpecifyVacancyWorkspace({
   }, [detail?.questions]);
   const activeQuestion =
     pendingQuestions[activeIndex] ?? pendingQuestions[0] ?? null;
+  const requiredQuestionsRemaining = pendingQuestions.filter(
+    (question) => question.required,
+  ).length;
   const isComposerVisible = activeQuestion !== null || exitingQuestion !== null;
 
   useEffect(() => {
@@ -291,45 +294,26 @@ function SpecifyVacancyWorkspace({
         <DetectedDetailsPanel detail={detail} />
       </div>
 
-      {!(detail.vacancy.status === "asking_questions" && isComposerVisible) ? (
-        <WorkflowUtilityPanel
-          detail={detail}
-          message={message}
-          homepageUrl={homepageUrl}
-          isRetryingAnalysis={isRetryingAnalysis}
-          onHomepageChange={setHomepageUrl}
-          onHomepageSubmit={submitHomepage}
-          onRetry={() => void retryAnalysis()}
-          onFinish={() => void finish()}
-          onOpenDetails={() =>
-            router.push(
-              vacancyReviewPath(detail.vacancy.slug, detail.vacancy._id),
-            )
-          }
-        />
-      ) : null}
-
       {isComposerVisible ? (
         <section className="absolute inset-x-0 bottom-0 z-40 px-3 pb-3 sm:px-8 sm:pb-8">
           <div className="relative mx-auto max-w-5xl">
-            {detail.vacancy.status === "asking_questions" ? (
-              <WorkflowUtilityPanel
-                detail={detail}
-                message={message}
-                homepageUrl={homepageUrl}
-                isRetryingAnalysis={isRetryingAnalysis}
-                onHomepageChange={setHomepageUrl}
-                onHomepageSubmit={submitHomepage}
-                onRetry={() => void retryAnalysis()}
-                onFinish={() => void finish()}
-                onOpenDetails={() =>
-                  router.push(
-                    vacancyReviewPath(detail.vacancy.slug, detail.vacancy._id),
-                  )
-                }
-                docked
-              />
-            ) : null}
+            <WorkflowUtilityPanel
+              detail={detail}
+              message={message}
+              homepageUrl={homepageUrl}
+              isRetryingAnalysis={isRetryingAnalysis}
+              onHomepageChange={setHomepageUrl}
+              onHomepageSubmit={submitHomepage}
+              onRetry={() => void retryAnalysis()}
+              onFinish={() => void finish()}
+              onOpenDetails={() =>
+                router.push(
+                  vacancyReviewPath(detail.vacancy.slug, detail.vacancy._id),
+                )
+              }
+              requiredQuestionsRemaining={requiredQuestionsRemaining}
+              docked
+            />
             <QuestionStack count={pendingQuestions.length} />
             {exitingQuestion ? (
               <ExitingComposer question={exitingQuestion} />
@@ -361,7 +345,29 @@ function SpecifyVacancyWorkspace({
             ) : null}
           </div>
         </section>
-      ) : null}
+      ) : (
+        <section className="absolute inset-x-0 bottom-0 z-40 px-3 pb-3 sm:px-8 sm:pb-8">
+          <div className="relative mx-auto max-w-5xl">
+            <WorkflowUtilityPanel
+              detail={detail}
+              message={message}
+              homepageUrl={homepageUrl}
+              isRetryingAnalysis={isRetryingAnalysis}
+              onHomepageChange={setHomepageUrl}
+              onHomepageSubmit={submitHomepage}
+              onRetry={() => void retryAnalysis()}
+              onFinish={() => void finish()}
+              onOpenDetails={() =>
+                router.push(
+                  vacancyReviewPath(detail.vacancy.slug, detail.vacancy._id),
+                )
+              }
+              requiredQuestionsRemaining={requiredQuestionsRemaining}
+              docked
+            />
+          </div>
+        </section>
+      )}
     </main>
   );
 }
@@ -612,16 +618,29 @@ function QuestionComposer({
           </Button>
         </div>
       </div>
-      <div className="flex gap-2">
+      <div className="flex gap-2 items-end">
         <Textarea
           value={draft}
           onChange={(event) => onDraftChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (
+              event.key !== "Enter" ||
+              event.shiftKey ||
+              event.nativeEvent.isComposing
+            ) {
+              return;
+            }
+            event.preventDefault();
+            if (draft.trim() !== "") {
+              onSubmit();
+            }
+          }}
           placeholder="Type your answer..."
-          className="min-h-12 resize-none"
+          className="min-h-12 resize-none max-h-80"
         />
         <Button
           type="submit"
-          className="h-auto self-stretch"
+          className="size-12"
           aria-label="Submit answer"
           disabled={draft.trim() === ""}
         >
@@ -642,6 +661,7 @@ function WorkflowUtilityPanel({
   onRetry,
   onFinish,
   onOpenDetails,
+  requiredQuestionsRemaining,
   docked = false,
 }: {
   detail: SpecifyDetail;
@@ -653,6 +673,7 @@ function WorkflowUtilityPanel({
   onRetry: () => void;
   onFinish: () => void;
   onOpenDetails: () => void;
+  requiredQuestionsRemaining: number;
   docked?: boolean;
 }) {
   const hasUtility =
@@ -669,8 +690,8 @@ function WorkflowUtilityPanel({
     <section
       className={
         docked
-          ? "relative z-20 mb-3 ml-auto max-w-xl sm:w-88"
-          : "absolute left-3 right-3 top-28 z-20 mx-auto max-w-xl sm:left-auto sm:right-6 sm:top-20 sm:mx-0 sm:w-88"
+          ? "relative z-20 mb-3 mx-auto max-w-xl sm:w-120"
+          : "absolute left-3 right-3 top-28 z-20 mx-auto max-w-xl sm:left-auto sm:right-6 sm:top-20 sm:mx-0 sm:w-120"
       }
     >
       <div className="av-glass space-y-3 p-3 rounded-md text-sm">
@@ -711,20 +732,30 @@ function WorkflowUtilityPanel({
           </form>
         ) : null}
         {detail.vacancy.status === "asking_questions" ? (
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-muted-foreground">
-              No blocking questions remain.
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-muted-foreground text-xs">
+              {requiredQuestionsRemaining === 0
+                ? "The agent understands the intent of the vacancy."
+                : `Some question${requiredQuestionsRemaining === 1 ? "" : "s"} still need${requiredQuestionsRemaining === 1 ? "s" : ""} an answer before creating a CV and cover letter.`}
             </p>
-            <Button type="button" onClick={onFinish}>
-              Understands Vacancy
-              <ArrowRight className="size-4" />
-            </Button>
+            {requiredQuestionsRemaining === 0 ? (
+              <Button type="button" onClick={onFinish}>
+                Create CV and cover letter
+                <ArrowRight className="size-4" />
+              </Button>
+            ) : null}
           </div>
         ) : null}
         {detail.vacancy.status === "ready" ? (
-          <Button type="button" className="w-full" onClick={onOpenDetails}>
-            View Vacancy details
-          </Button>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-muted-foreground">
+              The agent understands the intent of the vacancy.
+            </p>
+            <Button type="button" onClick={onOpenDetails}>
+              View Vacancy details
+              <ArrowRight className="size-4" />
+            </Button>
+          </div>
         ) : null}
         {message ? <p className="text-muted-foreground">{message}</p> : null}
       </div>
@@ -833,14 +864,14 @@ function AnswerField({
         id: answer._id,
         cardWidth,
         cardHeight,
-        radius: Math.hypot(cardWidth, cardHeight) / 2 + 18,
+        radius: Math.hypot(cardWidth, cardHeight) / 2 - 6,
         x: existing?.x ?? size.width / 2 + (index % 2 === 0 ? -60 : 60),
         y: existing?.y ?? size.height - 210,
       };
     });
 
     const simulation = forceSimulation(nodes)
-      .force("charge", forceManyBody<SimNode>().strength(-120))
+      .force("charge", forceManyBody<SimNode>().strength(-80))
       .force(
         "collide",
         forceCollide<SimNode>()
@@ -999,16 +1030,16 @@ function FloatingAnswerCard({
         ...driftStyle,
       }}
       onClick={onClick}
-      className="floating-answer-card absolute min-w-36 max-w-[min(21rem,70vw)] -translate-x-1/2 -translate-y-1/2 text-left outline-none sm:max-w-[min(26rem,74vw)]"
+      className="floating-answer-card absolute min-w-36 max-w-[min(15rem,70vw)] -translate-x-1/2 -translate-y-1/2 text-left outline-none sm:max-w-[min(15rem,74vw)]"
     >
-      <span className="floating-answer-drift block rounded-md border border-[#eef1fb] bg-white/88 px-4 py-3 shadow-[0_18px_54px_rgba(91,94,170,0.12)] backdrop-blur transition-shadow sm:px-5 sm:py-4">
-        <span className="block text-xs font-medium text-[#777d96] sm:text-sm">
+      <div className="floating-answer-drift block rounded-md border border-[#eef1fb] bg-white/88 px-4 py-3 shadow-[0_18px_54px_rgba(91,94,170,0.12)] backdrop-blur transition-shadow sm:px-5 sm:py-4">
+        <span className="block text-sm font-medium text-[#171827] sm:text-sm">
           {item.shortPrompt}
         </span>
-        <span className="mt-2 line-clamp-4 block text-sm font-medium leading-snug text-[#171827] sm:text-base">
+        <p className="mt-0 line-clamp-3 text-xs leading-snug text-[#777d96] sm:text-xs">
           {item.answer}
-        </span>
-      </span>
+        </p>
+      </div>
     </animated.button>
   );
 }

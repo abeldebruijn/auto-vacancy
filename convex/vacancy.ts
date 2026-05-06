@@ -1,10 +1,5 @@
 import { v } from "convex/values";
-import {
-  internalMutation,
-  internalQuery,
-  mutation,
-  query,
-} from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -64,11 +59,7 @@ const requiredSkillOutputValidator = v.object({
   kind: v.union(v.literal("soft"), v.literal("hard")),
   name: v.string(),
   evidence: v.union(v.string(), v.null()),
-  matchStatus: v.union(
-    v.literal("matched"),
-    v.literal("missing"),
-    v.literal("uncertain"),
-  ),
+  matchStatus: v.union(v.literal("matched"), v.literal("missing"), v.literal("uncertain")),
   matchedCandidateSkillIds: v.array(v.id("skills")),
   sortOrder: v.number(),
 });
@@ -97,15 +88,10 @@ const vacancyDetailOutputValidator = v.object({
 function normalizeHomepageUrl(homepageUrl: string) {
   const trimmed = homepageUrl.trim();
   if (trimmed === "") return null;
-  const candidate = /^https?:\/\//i.test(trimmed)
-    ? trimmed
-    : `https://${trimmed}`;
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
   try {
     const url = new URL(candidate);
-    if (
-      (url.protocol !== "http:" && url.protocol !== "https:") ||
-      !url.hostname.includes(".")
-    ) {
+    if ((url.protocol !== "http:" && url.protocol !== "https:") || !url.hostname.includes(".")) {
       return null;
     }
     return url.toString();
@@ -122,10 +108,7 @@ async function requireOwnerToken(ctx: QueryCtx | MutationCtx) {
   return identity.tokenIdentifier;
 }
 
-async function getOwnedProfile(
-  ctx: QueryCtx | MutationCtx,
-  ownerToken: string,
-) {
+async function getOwnedProfile(ctx: QueryCtx | MutationCtx, ownerToken: string) {
   return await ctx.db
     .query("candidateProfiles")
     .withIndex("by_ownerToken", (q) => q.eq("ownerToken", ownerToken))
@@ -221,9 +204,7 @@ function detailUpdatesFromAnswer(args: {
       patch.coverLetterAddressee = coverLetterAddressee;
     } else if (args.current.coverLetterAddressee === null) {
       const secondChunk = args.answer.split(/,|;|\n/)[1];
-      const fallbackAddressee = secondChunk
-        ? cleanDetailAnswer(secondChunk)
-        : "";
+      const fallbackAddressee = secondChunk ? cleanDetailAnswer(secondChunk) : "";
       if (fallbackAddressee !== "") {
         patch.coverLetterAddressee = fallbackAddressee;
       }
@@ -235,10 +216,7 @@ function detailUpdatesFromAnswer(args: {
     if (title !== "") {
       patch.title = title;
       patch.titleConfidence = 1;
-      if (
-        args.current.companyName === null &&
-        patch.companyName === undefined
-      ) {
+      if (args.current.companyName === null && patch.companyName === undefined) {
         patch.slug = slugify(title);
       }
     }
@@ -261,11 +239,7 @@ async function persistQuestionAnswer(
   if (answer === "") {
     throw new Error("Answer cannot be empty");
   }
-  const vacancy = await getOwnedVacancy(
-    ctx,
-    question.vacancyUnderstandingId,
-    ownerToken,
-  );
+  const vacancy = await getOwnedVacancy(ctx, question.vacancyUnderstandingId, ownerToken);
   const detailPatch = detailUpdatesFromAnswer({
     shortPrompt: question.shortPrompt,
     prompt: question.prompt,
@@ -327,11 +301,7 @@ export const startAnalysis = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const ownerToken = await requireOwnerToken(ctx);
-    const vacancy = await getOwnedVacancy(
-      ctx,
-      args.vacancyUnderstandingId,
-      ownerToken,
-    );
+    const vacancy = await getOwnedVacancy(ctx, args.vacancyUnderstandingId, ownerToken);
     await ctx.db.patch(vacancy._id, {
       status: "processing",
       error: null,
@@ -356,21 +326,15 @@ export const get = query({
     }
     const researchSummaries = await ctx.db
       .query("vacancyResearchSummaries")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
       .take(20);
     const requiredSkills = await ctx.db
       .query("vacancyRequiredSkills")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
       .take(200);
     const questions = await ctx.db
       .query("vacancyQuestions")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
       .take(100);
     return {
       vacancy,
@@ -394,21 +358,15 @@ export const getForAnalysis = internalQuery({
     }
     const researchSummaries = await ctx.db
       .query("vacancyResearchSummaries")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
       .take(20);
     const requiredSkills = await ctx.db
       .query("vacancyRequiredSkills")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
       .take(200);
     const questions = await ctx.db
       .query("vacancyQuestions")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
       .take(100);
     return {
       vacancy,
@@ -430,9 +388,7 @@ export const list = query({
       .collect();
 
     return vacancies
-      .filter(
-        (vacancy) => args.includeArchived || vacancy.archivedAt === undefined,
-      )
+      .filter((vacancy) => args.includeArchived || vacancy.archivedAt === undefined)
       .sort((a, b) => b.createdAt - a.createdAt);
   },
 });
@@ -445,11 +401,7 @@ export const setArchived = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const ownerToken = await requireOwnerToken(ctx);
-    const vacancy = await getOwnedVacancy(
-      ctx,
-      args.vacancyUnderstandingId,
-      ownerToken,
-    );
+    const vacancy = await getOwnedVacancy(ctx, args.vacancyUnderstandingId, ownerToken);
     await ctx.db.patch(vacancy._id, {
       archivedAt: args.archived ? Date.now() : undefined,
       updatedAt: Date.now(),
@@ -470,29 +422,22 @@ export const getBySlugId = query({
     const vacancy =
       vacancies.find(
         (candidate) =>
-          args.slugId === candidate._id ||
-          args.slugId === `${candidate.slug}-${candidate._id}`,
+          args.slugId === candidate._id || args.slugId === `${candidate.slug}-${candidate._id}`,
       ) ?? null;
     if (vacancy === null) {
       return null;
     }
     const researchSummaries = await ctx.db
       .query("vacancyResearchSummaries")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
       .take(20);
     const requiredSkills = await ctx.db
       .query("vacancyRequiredSkills")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
       .take(200);
     const questions = await ctx.db
       .query("vacancyQuestions")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
       .take(100);
     return {
       vacancy,
@@ -511,11 +456,7 @@ export const provideHomepage = mutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const ownerToken = await requireOwnerToken(ctx);
-    const vacancy = await getOwnedVacancy(
-      ctx,
-      args.vacancyUnderstandingId,
-      ownerToken,
-    );
+    const vacancy = await getOwnedVacancy(ctx, args.vacancyUnderstandingId, ownerToken);
     const homepageUrl = normalizeHomepageUrl(args.homepageUrl);
     if (homepageUrl === null) {
       throw new Error("Provide a company homepage URL");
@@ -564,11 +505,7 @@ export const clearQuestionAnswer = mutation({
     if (question === null || question.ownerToken !== ownerToken) {
       throw new Error("Question not found");
     }
-    const vacancy = await getOwnedVacancy(
-      ctx,
-      question.vacancyUnderstandingId,
-      ownerToken,
-    );
+    const vacancy = await getOwnedVacancy(ctx, question.vacancyUnderstandingId, ownerToken);
     await ctx.db.patch(question._id, {
       answer: null,
       answeredAt: null,
@@ -589,11 +526,7 @@ export const deleteQuestion = mutation({
     if (question === null || question.ownerToken !== ownerToken) {
       throw new Error("Question not found");
     }
-    const vacancy = await getOwnedVacancy(
-      ctx,
-      question.vacancyUnderstandingId,
-      ownerToken,
-    );
+    const vacancy = await getOwnedVacancy(ctx, question.vacancyUnderstandingId, ownerToken);
     await ctx.db.delete(question._id);
     await ctx.db.patch(vacancy._id, { updatedAt: Date.now() });
     return null;
@@ -605,29 +538,18 @@ export const understandsVacancy = mutation({
   returns: v.string(),
   handler: async (ctx, args) => {
     const ownerToken = await requireOwnerToken(ctx);
-    const vacancy = await getOwnedVacancy(
-      ctx,
-      args.vacancyUnderstandingId,
-      ownerToken,
-    );
+    const vacancy = await getOwnedVacancy(ctx, args.vacancyUnderstandingId, ownerToken);
     if (vacancy.status === "failed") {
       throw new Error("Vacancy Understanding analysis failed");
     }
-    if (
-      vacancy.status === "needs_homepage" ||
-      vacancy.status === "processing"
-    ) {
+    if (vacancy.status === "needs_homepage" || vacancy.status === "processing") {
       throw new Error("Vacancy Understanding is not ready yet");
     }
     const questions = await ctx.db
       .query("vacancyQuestions")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))
       .take(100);
-    const blocking = questions.some(
-      (question) => question.required && question.answer === null,
-    );
+    const blocking = questions.some((question) => question.required && question.answer === null);
     if (blocking) {
       throw new Error("Answer required questions before continuing");
     }
@@ -659,30 +581,20 @@ export const finishAnalysis = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const vacancy = await getOwnedVacancy(
-      ctx,
-      args.vacancyUnderstandingId,
-      args.ownerToken,
-    );
+    const vacancy = await getOwnedVacancy(ctx, args.vacancyUnderstandingId, args.ownerToken);
     for await (const summary of ctx.db
       .query("vacancyResearchSummaries")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )) {
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))) {
       await ctx.db.delete(summary._id);
     }
     for await (const skill of ctx.db
       .query("vacancyRequiredSkills")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )) {
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))) {
       await ctx.db.delete(skill._id);
     }
     for await (const question of ctx.db
       .query("vacancyQuestions")
-      .withIndex("by_vacancyUnderstandingId", (q) =>
-        q.eq("vacancyUnderstandingId", vacancy._id),
-      )) {
+      .withIndex("by_vacancyUnderstandingId", (q) => q.eq("vacancyUnderstandingId", vacancy._id))) {
       await ctx.db.delete(question._id);
     }
     const now = Date.now();
