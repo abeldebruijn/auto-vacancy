@@ -7,11 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -45,13 +41,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { statusLabel } from "@/components/vacancy/vacancy-utils";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
-import {
-  Authenticated,
-  Unauthenticated,
-  useAction,
-  useMutation,
-  useQuery,
-} from "convex/react";
+import { Authenticated, Unauthenticated, useAction, useMutation, useQuery } from "convex/react";
 import {
   Archive,
   ArchiveRestore,
@@ -83,9 +73,7 @@ type PackagePictureOverride =
 const MAX_CV_SKILLS = 7;
 
 function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error && error.message.trim() !== ""
-    ? error.message
-    : fallback;
+  return error instanceof Error && error.message.trim() !== "" ? error.message : fallback;
 }
 
 function limitCvSkills(draft: CvDraftSnapshot): CvDraftSnapshot {
@@ -131,25 +119,15 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
   const updateQuestionAnswer = useMutation(api.vacancy.updateQuestionAnswer);
   const deleteQuestion = useMutation(api.vacancy.deleteQuestion);
   const addProfileSkill = useMutation(api.profile.addSkill);
-  const getOrCreateApplicationPackage = useMutation(
-    api.applicationPackage.getOrCreateForVacancy,
-  );
+  const getOrCreateApplicationPackage = useMutation(api.applicationPackage.getOrCreateForVacancy);
   const uploadPackagePictureUrl = useMutation(
     api.applicationPackage.generateProfilePictureUploadUrl,
   );
-  const setPackagePictureOverride = useMutation(
-    api.applicationPackage.setProfilePictureOverride,
-  );
+  const setPackagePictureOverride = useMutation(api.applicationPackage.setProfilePictureOverride);
   const saveCvDraft = useMutation(api.applicationPackage.saveCvDraft);
-  const generateCvDraft = useAction(
-    api.applicationPackageAgents.generateCvDraft,
-  );
-  const regenerateCvDraft = useAction(
-    api.applicationPackageAgents.regenerateCvDraft,
-  );
-  const generateCvPdfVersion = useAction(
-    api.applicationPackageAgents.generateCvPdfVersion,
-  );
+  const generateCvDraft = useAction(api.applicationPackageAgents.generateCvDraft);
+  const regenerateCvDraft = useAction(api.applicationPackageAgents.regenerateCvDraft);
+  const generateCvPdfVersion = useAction(api.applicationPackageAgents.generateCvPdfVersion);
   const [skillDialog, setSkillDialog] = useState<RequiredSkill | null>(null);
   const [proficiency, setProficiency] = useState<Proficiency>("medium");
   const [experienceIds, setExperienceIds] = useState<Id<"experiences">[]>([]);
@@ -167,8 +145,7 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
     profileData === undefined || profileData === null
       ? []
       : profileData.skills.map((skill) => skill.name);
-  const vacancySkillLabels =
-    detail?.requiredSkills.map((skill) => skill.name) ?? [];
+  const vacancySkillLabels = detail?.requiredSkills.map((skill) => skill.name) ?? [];
 
   useEffect(() => {
     if (packageDetail === undefined) return;
@@ -245,9 +222,7 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
     setSkillDialog(null);
   }
 
-  async function savePackagePictureOverride(
-    profilePictureOverride: PackagePictureOverride,
-  ) {
+  async function savePackagePictureOverride(profilePictureOverride: PackagePictureOverride) {
     if (detail === undefined || detail === null) return;
     setPackageStatus("Saving package picture...");
     try {
@@ -303,18 +278,13 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
 
   async function updatePackageFromVacancyQuestions() {
     if (detail === undefined || detail === null || cvActionPending) return;
-    const hasDraft =
-      packageDetail?.cvDraft !== null && packageDetail?.cvDraft !== undefined;
+    const hasDraft = packageDetail?.cvDraft !== null && packageDetail?.cvDraft !== undefined;
     const confirmed = !hasDraft
       ? true
-      : window.confirm(
-          "Regenerate the CV Draft? This overwrites your saved edits.",
-        );
+      : window.confirm("Regenerate the CV Draft? This overwrites your saved edits.");
     if (!confirmed) return;
     setCvActionPending(true);
-    setCvStatus(
-      hasDraft ? "Regenerating CV Draft..." : "Generating CV Draft...",
-    );
+    setCvStatus(hasDraft ? "Regenerating CV Draft..." : "Generating CV Draft...");
     try {
       if (hasDraft) {
         await regenerateCvDraft({ vacancyUnderstandingId: detail.vacancy._id });
@@ -339,10 +309,7 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
     });
   }
 
-  async function saveVacancyQuestion(
-    questionId: Id<"vacancyQuestions">,
-    answer: string,
-  ) {
+  async function saveVacancyQuestion(questionId: Id<"vacancyQuestions">, answer: string) {
     await updateQuestionAnswer({ questionId, answer });
     promptPackageUpdateToast();
   }
@@ -354,9 +321,7 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
 
   async function overwriteCvDraft() {
     if (detail === undefined || detail === null || cvActionPending) return;
-    const confirmed = window.confirm(
-      "Regenerate the CV Draft? This overwrites your saved edits.",
-    );
+    const confirmed = window.confirm("Regenerate the CV Draft? This overwrites your saved edits.");
     if (!confirmed) return;
     setCvActionPending(true);
     setCvStatus("Regenerating CV Draft...");
@@ -451,19 +416,14 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
         <div>
           <p className="text-sm text-muted-foreground">Vacancy details</p>
           <h1 className="text-3xl font-semibold">
-            {detail.vacancy.title ?? "Vacancy"} at{" "}
-            {detail.vacancy.companyName ?? "Unknown company"}
+            {detail.vacancy.title ?? "Vacancy"} at {detail.vacancy.companyName ?? "Unknown company"}
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {detail.vacancy.archivedAt !== undefined ? (
             <Badge variant="outline">Archived</Badge>
           ) : null}
-          <Badge
-            variant={
-              detail.vacancy.status === "ready" ? "default" : "secondary"
-            }
-          >
+          <Badge variant={detail.vacancy.status === "ready" ? "default" : "secondary"}>
             {statusLabel(detail.vacancy.status)}
           </Badge>
           <Button
@@ -508,8 +468,7 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
                   draft={cvDraft}
                   pictureUrl={packageDetail?.pictureUrl ?? null}
                   pictureMode={
-                    packageDetail?.applicationPackage.profilePictureOverride
-                      .kind ?? "preparing"
+                    packageDetail?.applicationPackage.profilePictureOverride.kind ?? "preparing"
                   }
                   packageReady={packageReady}
                   packageStatus={packageStatus}
@@ -520,12 +479,8 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
                   status={cvStatus}
                   pending={cvActionPending}
                   onPackagePictureUrlChange={setPackagePictureUrl}
-                  onPackagePictureUpload={(file) =>
-                    void handlePackagePictureUpload(file)
-                  }
-                  onPackagePictureOverride={(override) =>
-                    void savePackagePictureOverride(override)
-                  }
+                  onPackagePictureUpload={(file) => void handlePackagePictureUpload(file)}
+                  onPackagePictureOverride={(override) => void savePackagePictureOverride(override)}
                   onGenerate={() => void createCvDraft()}
                   onRegenerate={() => void overwriteCvDraft()}
                   onSave={() => void persistCvDraft()}
@@ -542,9 +497,7 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
             </CardHeader>
             <CardContent className="space-y-4">
               {detail.researchSummaries.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No company summaries available.
-                </p>
+                <p className="text-sm text-muted-foreground">No company summaries available.</p>
               ) : (
                 detail.researchSummaries.map((summary) => (
                   <CompanyResearchSummary key={summary._id} summary={summary} />
@@ -559,9 +512,7 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
             </CardHeader>
             <CardContent className="space-y-3">
               {detail.questions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No questions were needed.
-                </p>
+                <p className="text-sm text-muted-foreground">No questions were needed.</p>
               ) : (
                 detail.questions.map((question) => (
                   <VacancyQuestionItem
@@ -585,10 +536,7 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
               <Row label="Company" value={detail.vacancy.companyName} />
               <Row label="Title" value={detail.vacancy.title} />
               <Row label="Language" value={detail.vacancy.language} />
-              <Row
-                label="Addressee"
-                value={detail.vacancy.coverLetterAddressee}
-              />
+              <Row label="Addressee" value={detail.vacancy.coverLetterAddressee} />
             </CardContent>
           </Card>
 
@@ -596,8 +544,7 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
             <CardHeader>
               <CardTitle>Required skills</CardTitle>
               <p className="text-sm text-muted-foreground">
-                Add skills to your Candidate Profile so future vacancies also
-                know you have them.
+                Add skills to your Candidate Profile so future vacancies also know you have them.
               </p>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -637,55 +584,43 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
                 </div>
               ))}
               {saveStatus !== null ? (
-                <p className="pt-1 text-xs text-muted-foreground">
-                  {saveStatus}
-                </p>
+                <p className="pt-1 text-xs text-muted-foreground">{saveStatus}</p>
               ) : null}
             </CardContent>
           </Card>
         </aside>
       </div>
 
-      <Dialog
-        open={skillDialog !== null}
-        onOpenChange={(open) => !open && setSkillDialog(null)}
-      >
+      <Dialog open={skillDialog !== null} onOpenChange={(open) => !open && setSkillDialog(null)}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Add skill to Candidate Profile</DialogTitle>
             <DialogDescription>
-              Save this Vacancy skill permanently with proficiency and
-              supporting evidence.
+              Save this Vacancy skill permanently with proficiency and supporting evidence.
             </DialogDescription>
           </DialogHeader>
           {skillDialog !== null ? (
             <div className="space-y-5">
               <div className="rounded-md border bg-muted/30 p-3">
                 <p className="font-medium">{skillDialog.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {skillDialog.kind} skill
-                </p>
+                <p className="text-sm text-muted-foreground">{skillDialog.kind} skill</p>
               </div>
 
               <div className="grid gap-1.5">
                 <Label>Proficiency</Label>
                 <Select
                   value={proficiency}
-                  onValueChange={(next) =>
-                    setProficiency((next ?? "medium") as Proficiency)
-                  }
+                  onValueChange={(next) => setProficiency((next ?? "medium") as Proficiency)}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {(["low", "medium", "high", "expert"] as const).map(
-                      (option) => (
-                        <SelectItem key={option} value={option}>
-                          {option}
-                        </SelectItem>
-                      ),
-                    )}
+                    {(["low", "medium", "high", "expert"] as const).map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -707,11 +642,7 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
             </div>
           ) : null}
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setSkillDialog(null)}
-            >
+            <Button type="button" variant="outline" onClick={() => setSkillDialog(null)}>
               Cancel
             </Button>
             <Button type="button" onClick={() => void saveSkillToProfile()}>
@@ -785,8 +716,7 @@ function CvDraftWorkspace({
           <div>
             <h2 className="font-medium">No CV Draft yet</h2>
             <p className="text-sm text-muted-foreground">
-              Generate an editable CV Draft from this Vacancy and your Candidate
-              Profile.
+              Generate an editable CV Draft from this Vacancy and your Candidate Profile.
             </p>
           </div>
           <Button type="button" disabled={pending} onClick={onGenerate}>
@@ -813,21 +743,11 @@ function CvDraftWorkspace({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            disabled={pending}
-            onClick={onRegenerate}
-          >
+          <Button type="button" variant="outline" disabled={pending} onClick={onRegenerate}>
             <RefreshCw className="size-4" />
             Regenerate
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={pending}
-            onClick={onSave}
-          >
+          <Button type="button" variant="outline" disabled={pending} onClick={onSave}>
             <Save className="size-4" />
             Save
           </Button>
@@ -860,9 +780,7 @@ function CvDraftWorkspace({
         <CvField
           label="Email"
           value={draft.email ?? ""}
-          onChange={(email) =>
-            onChange({ ...draft, email: email.trim() === "" ? null : email })
-          }
+          onChange={(email) => onChange({ ...draft, email: email.trim() === "" ? null : email })}
         />
         <CvField
           label="Location of residence"
@@ -878,17 +796,13 @@ function CvDraftWorkspace({
           label="Layout"
           value={draft.layout}
           options={["compact", "flexible"]}
-          onChange={(layout) =>
-            onChange({ ...draft, layout: layout as CvDraftSnapshot["layout"] })
-          }
+          onChange={(layout) => onChange({ ...draft, layout: layout as CvDraftSnapshot["layout"] })}
         />
         <CvSelect
           label="Paper"
           value={draft.paper}
           options={["a4", "letter"]}
-          onChange={(paper) =>
-            onChange({ ...draft, paper: paper as CvDraftSnapshot["paper"] })
-          }
+          onChange={(paper) => onChange({ ...draft, paper: paper as CvDraftSnapshot["paper"] })}
         />
         <ColorField
           label="Accent"
@@ -949,16 +863,9 @@ function ProfilePicturePackageControl({
         </p>
       </div>
       <div className="flex flex-wrap items-start gap-4">
-        <Avatar
-          className="size-20 rounded-lg border border-neutral-200"
-          size="lg"
-        >
+        <Avatar className="size-20 rounded-lg border border-neutral-200" size="lg">
           {pictureUrl !== null ? (
-            <AvatarImage
-              className="rounded-lg object-cover"
-              src={pictureUrl}
-              alt=""
-            />
+            <AvatarImage className="rounded-lg object-cover" src={pictureUrl} alt="" />
           ) : (
             <AvatarFallback className="rounded-lg bg-neutral-50">
               <UserRound className="size-7" />
@@ -1008,9 +915,7 @@ function ProfilePicturePackageControl({
               placeholder="Image URL"
               disabled={!packageReady}
               value={packagePictureUrl}
-              onChange={(event) =>
-                onPackagePictureUrlChange(event.target.value)
-              }
+              onChange={(event) => onPackagePictureUrlChange(event.target.value)}
             />
             <Button
               type="button"
@@ -1048,11 +953,7 @@ function CvField({
   return (
     <div className="grid gap-1.5">
       <Label htmlFor={id}>{label}</Label>
-      <Input
-        id={id}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
+      <Input id={id} value={value} onChange={(event) => onChange(event.target.value)} />
     </div>
   );
 }
@@ -1172,9 +1073,7 @@ function StringListEditor({
             value={value}
             onChange={(event) =>
               onChange(
-                values.map((item, itemIndex) =>
-                  itemIndex === index ? event.target.value : item,
-                ),
+                values.map((item, itemIndex) => (itemIndex === index ? event.target.value : item)),
               )
             }
           />
@@ -1183,9 +1082,7 @@ function StringListEditor({
             size="icon-sm"
             variant="ghost"
             aria-label={`Remove ${label} item`}
-            onClick={() =>
-              onChange(values.filter((_, itemIndex) => itemIndex !== index))
-            }
+            onClick={() => onChange(values.filter((_, itemIndex) => itemIndex !== index))}
           >
             <Trash2 className="size-4" />
           </Button>
@@ -1222,9 +1119,7 @@ function SkillListEditor({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const canAdd = values.length < maxItems;
-  const used = new Set(
-    values.map((value) => value.trim().toLowerCase()).filter(Boolean),
-  );
+  const used = new Set(values.map((value) => value.trim().toLowerCase()).filter(Boolean));
   const candidateOptions = uniqueSkillLabels(candidateSkillLabels).filter(
     (skill) => !used.has(skill.toLowerCase()),
   );
@@ -1234,9 +1129,7 @@ function SkillListEditor({
   const hasOptions = candidateOptions.length > 0 || vacancyOptions.length > 0;
 
   function replaceSkill(index: number, value: string) {
-    onChange(
-      values.map((item, itemIndex) => (itemIndex === index ? value : item)),
-    );
+    onChange(values.map((item, itemIndex) => (itemIndex === index ? value : item)));
   }
 
   return (
@@ -1251,9 +1144,7 @@ function SkillListEditor({
             render={
               <Button type="button" size="sm" variant="outline">
                 {isOpen ? "Hide" : "Edit"}
-                <ChevronDown
-                  className={isOpen ? "size-3.5 rotate-180" : "size-3.5"}
-                />
+                <ChevronDown className={isOpen ? "size-3.5 rotate-180" : "size-3.5"} />
               </Button>
             }
           />
@@ -1279,9 +1170,7 @@ function SkillListEditor({
                 size="icon-sm"
                 variant="ghost"
                 aria-label="Remove skill"
-                onClick={() =>
-                  onChange(values.filter((_, itemIndex) => itemIndex !== index))
-                }
+                onClick={() => onChange(values.filter((_, itemIndex) => itemIndex !== index))}
               >
                 <Trash2 className="size-4" />
               </Button>
@@ -1319,10 +1208,7 @@ function SkillSelector({
 }) {
   const fallbackValue = value.trim() === "" ? "__empty" : value;
   return (
-    <Select
-      value={fallbackValue}
-      onValueChange={(next) => next && onChange(next)}
-    >
+    <Select value={fallbackValue} onValueChange={(next) => next && onChange(next)}>
       <SelectTrigger className="min-w-0 flex-1">
         <SelectValue />
       </SelectTrigger>
@@ -1422,12 +1308,7 @@ function ExperienceDraftEditor({
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <Label>Experience</Label>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() => openEditor("new")}
-        >
+        <Button type="button" size="sm" variant="outline" onClick={() => openEditor("new")}>
           <Plus className="size-3.5" />
           Add experience
         </Button>
@@ -1438,21 +1319,13 @@ function ExperienceDraftEditor({
             key={index}
             className="grid gap-3 rounded-md border bg-white p-3 sm:grid-cols-[minmax(0,1fr)_auto]"
           >
-            <button
-              type="button"
-              className="min-w-0 text-left"
-              onClick={() => openEditor(index)}
-            >
+            <button type="button" className="min-w-0 text-left" onClick={() => openEditor(index)}>
               <p className="font-medium">
-                {experience.company || "Untitled company"} ·{" "}
-                {experience.role || "Untitled role"}
+                {experience.company || "Untitled company"} · {experience.role || "Untitled role"}
               </p>
-              <p className="text-sm text-muted-foreground">
-                {experience.period || "No period"}
-              </p>
+              <p className="text-sm text-muted-foreground">{experience.period || "No period"}</p>
               <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                {experience.bullets.filter(Boolean).join(" ") ||
-                  "No story yet."}
+                {experience.bullets.filter(Boolean).join(" ") || "No story yet."}
               </p>
             </button>
             <div className="flex items-start justify-end gap-1">
@@ -1473,9 +1346,7 @@ function ExperienceDraftEditor({
                 onClick={() =>
                   onChange({
                     ...draft,
-                    experience: draft.experience.filter(
-                      (_, itemIndex) => itemIndex !== index,
-                    ),
+                    experience: draft.experience.filter((_, itemIndex) => itemIndex !== index),
                   })
                 }
               >
@@ -1485,18 +1356,13 @@ function ExperienceDraftEditor({
           </div>
         ))}
       </div>
-      <Dialog
-        open={editingExperience !== null}
-        onOpenChange={(open) => !open && closeEditor()}
-      >
+      <Dialog open={editingExperience !== null} onOpenChange={(open) => !open && closeEditor()}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               {editingIndex === "new" ? "Add experience" : "Edit experience"}
             </DialogTitle>
-            <DialogDescription>
-              Keep the CV story concise and vacancy-specific.
-            </DialogDescription>
+            <DialogDescription>Keep the CV story concise and vacancy-specific.</DialogDescription>
           </DialogHeader>
           {editingExperience !== null ? (
             <div className="space-y-3">
@@ -1504,23 +1370,17 @@ function ExperienceDraftEditor({
                 <CvField
                   label="Company"
                   value={editingExperience.company}
-                  onChange={(company) =>
-                    setEditingExperience({ ...editingExperience, company })
-                  }
+                  onChange={(company) => setEditingExperience({ ...editingExperience, company })}
                 />
                 <CvField
                   label="Role"
                   value={editingExperience.role}
-                  onChange={(role) =>
-                    setEditingExperience({ ...editingExperience, role })
-                  }
+                  onChange={(role) => setEditingExperience({ ...editingExperience, role })}
                 />
                 <CvField
                   label="Period"
                   value={editingExperience.period}
-                  onChange={(period) =>
-                    setEditingExperience({ ...editingExperience, period })
-                  }
+                  onChange={(period) => setEditingExperience({ ...editingExperience, period })}
                 />
               </div>
               <CvTextArea
@@ -1595,12 +1455,7 @@ function EducationDraftEditor({
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-2">
         <Label>Education</Label>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() => openEditor("new")}
-        >
+        <Button type="button" size="sm" variant="outline" onClick={() => openEditor("new")}>
           <Plus className="size-3.5" />
           Add education
         </Button>
@@ -1626,14 +1481,11 @@ function EducationDraftEditor({
             ) : (
               draft.education.map((education, index) => (
                 <TableRow key={index}>
-                  <TableCell className="font-medium">
-                    {education.school || "Untitled"}
-                  </TableCell>
+                  <TableCell className="font-medium">{education.school || "Untitled"}</TableCell>
                   <TableCell>{education.degree || "Untitled"}</TableCell>
                   <TableCell>{education.period || "No period"}</TableCell>
                   <TableCell className="max-w-xs truncate">
-                    {education.details.filter(Boolean).join(" · ") ||
-                      "No details"}
+                    {education.details.filter(Boolean).join(" · ") || "No details"}
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
@@ -1670,15 +1522,10 @@ function EducationDraftEditor({
           </TableBody>
         </Table>
       </div>
-      <Dialog
-        open={editingEducation !== null}
-        onOpenChange={(open) => !open && closeEditor()}
-      >
+      <Dialog open={editingEducation !== null} onOpenChange={(open) => !open && closeEditor()}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>
-              {editingIndex === "new" ? "Add education" : "Edit education"}
-            </DialogTitle>
+            <DialogTitle>{editingIndex === "new" ? "Add education" : "Edit education"}</DialogTitle>
             <DialogDescription>
               Update the education details used in the CV Draft.
             </DialogDescription>
@@ -1689,31 +1536,23 @@ function EducationDraftEditor({
                 <CvField
                   label="School"
                   value={editingEducation.school}
-                  onChange={(school) =>
-                    setEditingEducation({ ...editingEducation, school })
-                  }
+                  onChange={(school) => setEditingEducation({ ...editingEducation, school })}
                 />
                 <CvField
                   label="Degree"
                   value={editingEducation.degree}
-                  onChange={(degree) =>
-                    setEditingEducation({ ...editingEducation, degree })
-                  }
+                  onChange={(degree) => setEditingEducation({ ...editingEducation, degree })}
                 />
                 <CvField
                   label="Period"
                   value={editingEducation.period}
-                  onChange={(period) =>
-                    setEditingEducation({ ...editingEducation, period })
-                  }
+                  onChange={(period) => setEditingEducation({ ...editingEducation, period })}
                 />
               </div>
               <StringListEditor
                 label="Details"
                 values={editingEducation.details}
-                onChange={(details) =>
-                  setEditingEducation({ ...editingEducation, details })
-                }
+                onChange={(details) => setEditingEducation({ ...editingEducation, details })}
               />
             </div>
           ) : null}
@@ -1753,9 +1592,7 @@ function replaceEducation(
 ) {
   onChange({
     ...draft,
-    education: draft.education.map((item, itemIndex) =>
-      itemIndex === index ? education : item,
-    ),
+    education: draft.education.map((item, itemIndex) => (itemIndex === index ? education : item)),
   });
 }
 
@@ -1775,34 +1612,22 @@ function PdfVersionHistory({
           <CollapsibleTrigger
             render={
               <Button type="button" size="sm" variant="outline">
-                {isOpen
-                  ? "Hide previous"
-                  : `Show previous (${previous.length})`}
-                <ChevronDown
-                  className={isOpen ? "size-3.5 rotate-180" : "size-3.5"}
-                />
+                {isOpen ? "Hide previous" : `Show previous (${previous.length})`}
+                <ChevronDown className={isOpen ? "size-3.5 rotate-180" : "size-3.5"} />
               </Button>
             }
           />
         ) : null}
       </div>
       {versions.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No PDF Versions generated yet.
-        </p>
+        <p className="text-sm text-muted-foreground">No PDF Versions generated yet.</p>
       ) : (
         <div className="divide-y rounded-md border bg-white">
-          {latest !== undefined ? (
-            <PdfVersionRow version={latest} label="Latest PDF" />
-          ) : null}
+          {latest !== undefined ? <PdfVersionRow version={latest} label="Latest PDF" /> : null}
           <CollapsibleContent keepMounted>
             {isOpen
               ? previous.map((version) => (
-                  <PdfVersionRow
-                    key={version._id}
-                    version={version}
-                    label="Previous PDF"
-                  />
+                  <PdfVersionRow key={version._id} version={version} label="Previous PDF" />
                 ))
               : null}
           </CollapsibleContent>
@@ -1824,8 +1649,7 @@ function PdfVersionRow({
       <div>
         <p className="font-medium">{label}</p>
         <p className="text-muted-foreground">
-          {new Date(version.generatedAt).toLocaleString()} · revision{" "}
-          {version.draftRevision}
+          {new Date(version.generatedAt).toLocaleString()} · revision {version.draftRevision}
         </p>
       </div>
       {version.downloadUrl !== null ? (
@@ -1914,36 +1738,22 @@ function VacancyQuestionItem({
           </Button>
         </div>
       </div>
-      {status !== null ? (
-        <p className="mt-2 text-sm text-muted-foreground">{status}</p>
-      ) : null}
+      {status !== null ? <p className="mt-2 text-sm text-muted-foreground">{status}</p> : null}
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Vacancy Question</DialogTitle>
-            <DialogDescription>
-              Changes stay on the Vacancy Understanding.
-            </DialogDescription>
+            <DialogDescription>Changes stay on the Vacancy Understanding.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="rounded-md border bg-muted/30 p-3 text-sm">
-              {question.prompt}
-            </div>
+            <div className="rounded-md border bg-muted/30 p-3 text-sm">{question.prompt}</div>
             <CvTextArea label="Answer" value={answer} onChange={setAnswer} />
           </div>
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsEditing(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
               Cancel
             </Button>
-            <Button
-              type="button"
-              disabled={answer.trim() === ""}
-              onClick={() => void save()}
-            >
+            <Button type="button" disabled={answer.trim() === ""} onClick={() => void save()}>
               Save answer
             </Button>
           </DialogFooter>
@@ -1953,11 +1763,7 @@ function VacancyQuestionItem({
   );
 }
 
-function CompanyResearchSummary({
-  summary,
-}: {
-  summary: Doc<"vacancyResearchSummaries">;
-}) {
+function CompanyResearchSummary({ summary }: { summary: Doc<"vacancyResearchSummaries"> }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -2001,9 +1807,7 @@ function CompanyResearchSummary({
               aria-label={isOpen ? "Show less" : "Show more"}
             >
               {isOpen ? "Show less" : "Show more"}
-              <ChevronDown
-                className={isOpen ? "size-4 rotate-180" : "size-4"}
-              />
+              <ChevronDown className={isOpen ? "size-4 rotate-180" : "size-4"} />
             </Button>
           }
         />
@@ -2012,9 +1816,7 @@ function CompanyResearchSummary({
   );
 }
 
-function EvidenceChecklist<
-  TId extends Id<"experiences"> | Id<"experienceStories">,
->({
+function EvidenceChecklist<TId extends Id<"experiences"> | Id<"experienceStories">>({
   label,
   emptyLabel,
   selected,
