@@ -245,13 +245,14 @@ function HomeWorkspace() {
             {vacancyStatus ? (
               <p className="text-sm text-muted-foreground">{vacancyStatus}</p>
             ) : null}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 justify-between">
+              <Button type="button" variant="outline" onClick={() => router.push("/profile")}>
+                Review Candidate Profile
+              </Button>
+
               <Button type="submit" disabled={vacancyText.trim().length < 40}>
                 Start Vacancy Understanding
                 <ArrowRight className="size-4" />
-              </Button>
-              <Button type="button" variant="outline" onClick={() => router.push("/profile")}>
-                Review Candidate Profile
               </Button>
             </div>
           </form>
