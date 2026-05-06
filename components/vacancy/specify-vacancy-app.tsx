@@ -11,7 +11,12 @@ import {
   type SimulationNodeDatum,
 } from "d3-force";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Authenticated, Unauthenticated, useMutation, useQuery } from "convex/react";
+import {
+  Authenticated,
+  Unauthenticated,
+  useMutation,
+  useQuery,
+} from "convex/react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -36,7 +41,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { statusLabel, vacancyReviewPath } from "@/components/vacancy/vacancy-utils";
+import {
+  statusLabel,
+  vacancyReviewPath,
+} from "@/components/vacancy/vacancy-utils";
 
 type SpecifyDetail = NonNullable<typeof api.vacancy.get._returnType>;
 type AnsweredQuestion = SpecifyDetail["questions"][number] & { answer: string };
@@ -63,7 +71,9 @@ export function SpecifyVacancyApp({
   return (
     <div className="av-app-shell text-[#171827]">
       <Authenticated>
-        <SpecifyVacancyWorkspace vacancyUnderstandingId={vacancyUnderstandingId} />
+        <SpecifyVacancyWorkspace
+          vacancyUnderstandingId={vacancyUnderstandingId}
+        />
       </Authenticated>
       <Unauthenticated>
         <main className="mx-auto grid min-h-[calc(100vh-57px)] max-w-xl place-items-center px-4">
@@ -90,6 +100,7 @@ function SpecifyVacancyWorkspace({
   const detail = useQuery(api.vacancy.get, { vacancyUnderstandingId });
   const provideHomepage = useMutation(api.vacancy.provideHomepage);
   const answerQuestion = useMutation(api.vacancy.answerQuestion);
+  const clearQuestionAnswer = useMutation(api.vacancy.clearQuestionAnswer);
   const understandsVacancy = useMutation(api.vacancy.understandsVacancy);
   const startAnalysis = useMutation(api.vacancy.startAnalysis);
   const analysisStartedRef = useRef(false);
@@ -98,12 +109,14 @@ function SpecifyVacancyWorkspace({
   const [message, setMessage] = useState<string | null>(null);
   const [isRetryingAnalysis, setIsRetryingAnalysis] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [exitingQuestion, setExitingQuestion] = useState<SpecifyDetail["questions"][number] | null>(
-    null,
-  );
+  const [exitingQuestion, setExitingQuestion] = useState<
+    SpecifyDetail["questions"][number] | null
+  >(null);
 
   const pendingQuestions = useMemo(() => {
-    return detail?.questions.filter((question) => question.answer === null) ?? [];
+    return (
+      detail?.questions.filter((question) => question.answer === null) ?? []
+    );
   }, [detail?.questions]);
   const answeredQuestions = useMemo(() => {
     return (
@@ -112,11 +125,13 @@ function SpecifyVacancyWorkspace({
       ) ?? []
     );
   }, [detail?.questions]);
-  const activeQuestion = pendingQuestions[activeIndex] ?? pendingQuestions[0] ?? null;
+  const activeQuestion =
+    pendingQuestions[activeIndex] ?? pendingQuestions[0] ?? null;
   const isComposerVisible = activeQuestion !== null || exitingQuestion !== null;
 
   useEffect(() => {
-    if (detail?.vacancy.status !== "processing" || analysisStartedRef.current) return;
+    if (detail?.vacancy.status !== "processing" || analysisStartedRef.current)
+      return;
     analysisStartedRef.current = true;
     void startAnalysis({ vacancyUnderstandingId: detail.vacancy._id });
   }, [detail?.vacancy._id, detail?.vacancy.status, startAnalysis]);
@@ -171,7 +186,9 @@ function SpecifyVacancyWorkspace({
       await startAnalysis({ vacancyUnderstandingId: detail.vacancy._id });
       setMessage(null);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not save homepage.");
+      setMessage(
+        error instanceof Error ? error.message : "Could not save homepage.",
+      );
     }
   }
 
@@ -184,7 +201,36 @@ function SpecifyVacancyWorkspace({
       setAnswerDrafts((drafts) => ({ ...drafts, [questionId]: "" }));
       setMessage(null);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not save answer.");
+      setMessage(
+        error instanceof Error ? error.message : "Could not save answer.",
+      );
+    }
+  }
+
+  async function recallAnswer(question: AnsweredQuestion) {
+    if (!detail) return;
+    setMessage("Moving question back to the stack...");
+    try {
+      await clearQuestionAnswer({ questionId: question._id });
+      setAnswerDrafts((drafts) => ({
+        ...drafts,
+        [question._id]: question.answer,
+      }));
+      const nextPendingQuestions = detail.questions.filter(
+        (candidate) =>
+          candidate.answer === null || candidate._id === question._id,
+      );
+      const nextIndex = nextPendingQuestions.findIndex(
+        (candidate) => candidate._id === question._id,
+      );
+      setActiveIndex(nextIndex >= 0 ? nextIndex : 0);
+      setMessage(null);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not move question back.",
+      );
     }
   }
 
@@ -197,7 +243,9 @@ function SpecifyVacancyWorkspace({
       });
       router.push(path);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not finish yet.");
+      setMessage(
+        error instanceof Error ? error.message : "Could not finish yet.",
+      );
     }
   }
 
@@ -209,7 +257,11 @@ function SpecifyVacancyWorkspace({
       await startAnalysis({ vacancyUnderstandingId: detail.vacancy._id });
       setMessage(null);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not retry company research.");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not retry company research.",
+      );
     } finally {
       setIsRetryingAnalysis(false);
     }
@@ -219,17 +271,15 @@ function SpecifyVacancyWorkspace({
     <main className="relative min-h-svh overflow-hidden">
       <AnswerField
         answers={answeredQuestions}
-        onRecall={(question) => {
-          setAnswerDrafts((drafts) => ({
-            ...drafts,
-            [question._id]: question.answer,
-          }));
-          setActiveIndex(0);
-        }}
+        onRecall={(question) => void recallAnswer(question)}
       />
 
       <div className="absolute left-3 top-3 z-30 flex max-w-[calc(100vw-1.5rem)] flex-col items-start gap-2 sm:left-6 sm:top-6">
-        <Button type="button" onClick={() => router.push("/")} className="w-full justify-start">
+        <Button
+          type="button"
+          onClick={() => router.push("/")}
+          className="w-full justify-start"
+        >
           <ArrowLeft className="size-3.5" />
           Back home
         </Button>
@@ -252,7 +302,9 @@ function SpecifyVacancyWorkspace({
           onRetry={() => void retryAnalysis()}
           onFinish={() => void finish()}
           onOpenDetails={() =>
-            router.push(vacancyReviewPath(detail.vacancy.slug, detail.vacancy._id))
+            router.push(
+              vacancyReviewPath(detail.vacancy.slug, detail.vacancy._id),
+            )
           }
         />
       ) : null}
@@ -271,13 +323,17 @@ function SpecifyVacancyWorkspace({
                 onRetry={() => void retryAnalysis()}
                 onFinish={() => void finish()}
                 onOpenDetails={() =>
-                  router.push(vacancyReviewPath(detail.vacancy.slug, detail.vacancy._id))
+                  router.push(
+                    vacancyReviewPath(detail.vacancy.slug, detail.vacancy._id),
+                  )
                 }
                 docked
               />
             ) : null}
             <QuestionStack count={pendingQuestions.length} />
-            {exitingQuestion ? <ExitingComposer question={exitingQuestion} /> : null}
+            {exitingQuestion ? (
+              <ExitingComposer question={exitingQuestion} />
+            ) : null}
             {activeQuestion ? (
               <QuestionComposer
                 question={activeQuestion}
@@ -294,7 +350,10 @@ function SpecifyVacancyWorkspace({
                   setExitingQuestion(activeQuestion);
                   setActiveIndex((index) => {
                     if (pendingQuestions.length <= 1) return 0;
-                    return (index + direction + pendingQuestions.length) % pendingQuestions.length;
+                    return (
+                      (index + direction + pendingQuestions.length) %
+                      pendingQuestions.length
+                    );
                   });
                 }}
                 onSubmit={() => void submitAnswer(activeQuestion._id)}
@@ -327,17 +386,24 @@ function CompanyResearchPanel({
     {
       label: "Company",
       done: companyKnown,
-      value: detail.vacancy.companyName ?? (isProcessing ? "Detecting" : "Unknown"),
+      value:
+        detail.vacancy.companyName ?? (isProcessing ? "Detecting" : "Unknown"),
     },
     {
       label: "Homepage",
       done: homepageKnown,
-      value: detail.vacancy.companyHomepageUrl ?? (needsHomepage ? "Needed" : "Not found"),
+      value:
+        detail.vacancy.companyHomepageUrl ??
+        (needsHomepage ? "Needed" : "Not found"),
     },
     {
       label: "Public sources",
       done: hasResearch,
-      value: hasResearch ? `${summariesCount} summarized` : isProcessing ? "Checking" : "None yet",
+      value: hasResearch
+        ? `${summariesCount} summarized`
+        : isProcessing
+          ? "Checking"
+          : "None yet",
     },
   ];
   const completed = steps.filter((step) => step.done).length;
@@ -389,11 +455,18 @@ function CompanyResearchPanel({
                       : "mt-0.5 inline-flex size-5 items-center justify-center rounded-full border bg-white text-muted-foreground"
                   }
                 >
-                  {step.done ? <Check className="size-3" /> : <Clock className="size-3" />}
+                  {step.done ? (
+                    <Check className="size-3" />
+                  ) : (
+                    <Clock className="size-3" />
+                  )}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">{step.label}</span>
-                  <span className="block truncate text-muted-foreground" title={step.value}>
+                  <span
+                    className="block truncate text-muted-foreground"
+                    title={step.value}
+                  >
                     {step.value}
                   </span>
                 </span>
@@ -411,7 +484,9 @@ function CompanyResearchPanel({
                 onClick={onRetry}
                 disabled={isRetrying}
               >
-                <RefreshCw className={isRetrying ? "size-4 animate-spin" : "size-4"} />
+                <RefreshCw
+                  className={isRetrying ? "size-4 animate-spin" : "size-4"}
+                />
                 {isRetrying ? "Retrying" : "Retry"}
               </Button>
             </div>
@@ -453,7 +528,10 @@ function DetectedDetailsPanel({ detail }: { detail: SpecifyDetail }) {
           <DetailRow label="Company" value={detail.vacancy.companyName} />
           <DetailRow label="Title" value={detail.vacancy.title} />
           <DetailRow label="Language" value={detail.vacancy.language} />
-          <DetailRow label="Addressee" value={detail.vacancy.coverLetterAddressee} />
+          <DetailRow
+            label="Addressee"
+            value={detail.vacancy.coverLetterAddressee}
+          />
           {detail.vacancy.companyHomepageUrl ? (
             <a
               className="inline-flex items-center gap-1 text-sm text-[#4f55e7] hover:underline"
@@ -506,8 +584,12 @@ function QuestionComposer({
           <p className="text-sm text-muted-foreground">
             Question {activeIndex + 1} of {count}
           </p>
-          <h1 className="mt-2 max-w-3xl text-xl font-semibold leading-snug">{question.prompt}</h1>
-          <p className="mt-2 text-sm text-muted-foreground">{question.reason}</p>
+          <h1 className="mt-2 max-w-3xl text-xl font-semibold leading-snug">
+            {question.prompt}
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {question.reason}
+          </p>
         </div>
         <div className="flex shrink-0 flex-col rounded-md border border-[#dfe4f3] bg-[#f7f9ff] p-1">
           <Button
@@ -591,7 +673,7 @@ function WorkflowUtilityPanel({
           : "absolute left-3 right-3 top-28 z-20 mx-auto max-w-xl sm:left-auto sm:right-6 sm:top-20 sm:mx-0 sm:w-88"
       }
     >
-      <div className="av-glass space-y-3 rounded-md p-3 text-sm">
+      <div className="av-glass space-y-3 p-3 rounded-md text-sm">
         {detail.vacancy.status === "processing" ? (
           <p className="flex items-center gap-2 text-muted-foreground">
             <Sparkles className="size-4 animate-pulse text-[#5657e8]" />
@@ -601,11 +683,19 @@ function WorkflowUtilityPanel({
         {detail.vacancy.status === "failed" ? (
           <div className="space-y-3">
             <p className="text-muted-foreground">
-              Auto Vacancy could not complete the analysis. Retry the analysis or provide the
-              company homepage when asked.
+              Auto Vacancy could not complete the analysis. Retry the analysis
+              or provide the company homepage when asked.
             </p>
-            <Button type="button" onClick={onRetry} disabled={isRetryingAnalysis}>
-              <RefreshCw className={isRetryingAnalysis ? "size-4 animate-spin" : "size-4"} />
+            <Button
+              type="button"
+              onClick={onRetry}
+              disabled={isRetryingAnalysis}
+            >
+              <RefreshCw
+                className={
+                  isRetryingAnalysis ? "size-4 animate-spin" : "size-4"
+                }
+              />
               Try again
             </Button>
           </div>
@@ -622,7 +712,9 @@ function WorkflowUtilityPanel({
         ) : null}
         {detail.vacancy.status === "asking_questions" ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-muted-foreground">No blocking questions remain.</p>
+            <p className="text-muted-foreground">
+              No blocking questions remain.
+            </p>
             <Button type="button" onClick={onFinish}>
               Understands Vacancy
               <ArrowRight className="size-4" />
@@ -667,13 +759,19 @@ function QuestionStack({ count }: { count: number }) {
   );
 }
 
-function ExitingComposer({ question }: { question: SpecifyDetail["questions"][number] }) {
+function ExitingComposer({
+  question,
+}: {
+  question: SpecifyDetail["questions"][number];
+}) {
   return (
     <div className="composer-exit av-glass-strong pointer-events-none absolute inset-x-0 bottom-0 z-30 rounded-md p-3.5 sm:p-7">
       <div className="mb-3 flex items-start justify-between gap-2.5 sm:mb-6 sm:gap-4">
         <div>
           <p className="text-sm text-muted-foreground">Question</p>
-          <h1 className="mt-2 max-w-3xl text-xl font-semibold leading-snug">{question.prompt}</h1>
+          <h1 className="mt-2 max-w-3xl text-xl font-semibold leading-snug">
+            {question.prompt}
+          </h1>
         </div>
         <div className="h-[72px] w-[42px] shrink-0 rounded-md border border-[#dfe4f3] bg-[#f7f9ff] sm:h-[82px] sm:w-[46px]" />
       </div>
@@ -749,8 +847,18 @@ function AnswerField({
           .radius((node) => node.radius)
           .iterations(4),
       )
-      .force("x", forceX<SimNode>((_, index) => cloudX(index, size.width)).strength(0.045))
-      .force("y", forceY<SimNode>((_, index) => cloudY(index, size.height)).strength(0.06))
+      .force(
+        "x",
+        forceX<SimNode>((_, index) => cloudX(index, size.width)).strength(
+          0.045,
+        ),
+      )
+      .force(
+        "y",
+        forceY<SimNode>((_, index) => cloudY(index, size.height)).strength(
+          0.06,
+        ),
+      )
       .force("edges", edgeForce(size, zoom * sceneScale))
       .alpha(0.9)
       .alphaDecay(0.035)
@@ -763,7 +871,10 @@ function AnswerField({
             const minY = Math.max(edge.minY, topPadding);
             const maxY = Math.max(
               minY,
-              Math.min(edge.maxY, Math.max(topPadding, size.height - bottomPadding)),
+              Math.min(
+                edge.maxY,
+                Math.max(topPadding, size.height - bottomPadding),
+              ),
             );
             const x = clamp(Number(node.x), edge.minX, edge.maxX);
             const y = clamp(Number(node.y), minY, maxY);
@@ -945,8 +1056,13 @@ function getFloatingAnswerDrift(id: string) {
 
 function estimateCardWidth(item: AnsweredQuestion, viewportWidth: number) {
   const cssMaxWidth =
-    viewportWidth < 640 ? Math.min(336, viewportWidth * 0.7) : Math.min(416, viewportWidth * 0.74);
-  const textWidth = Math.max(item.shortPrompt.length * 7 + 64, item.answer.length * 8 + 96);
+    viewportWidth < 640
+      ? Math.min(336, viewportWidth * 0.7)
+      : Math.min(416, viewportWidth * 0.74);
+  const textWidth = Math.max(
+    item.shortPrompt.length * 7 + 64,
+    item.answer.length * 8 + 96,
+  );
   return clamp(textWidth, 144, cssMaxWidth);
 }
 
@@ -954,7 +1070,10 @@ function estimateCardHeight(item: AnsweredQuestion, viewportWidth: number) {
   const cardWidth = estimateCardWidth(item, viewportWidth);
   const horizontalPadding = viewportWidth < 640 ? 32 : 40;
   const verticalPadding = viewportWidth < 640 ? 24 : 32;
-  const answerLineLength = Math.max(9, Math.floor((cardWidth - horizontalPadding) / 9));
+  const answerLineLength = Math.max(
+    9,
+    Math.floor((cardWidth - horizontalPadding) / 9),
+  );
   const answerLines = Math.ceil(item.answer.length / answerLineLength);
   return verticalPadding + 18 + 8 + answerLines * 22;
 }
@@ -965,9 +1084,11 @@ function getNodeBounds(node: SimNode, size: FieldSize, scale: number) {
   const centerX = size.width / 2;
   const centerY = size.height / 2;
   const minX = centerX + (inset - centerX) / safeScale + node.cardWidth / 2;
-  const maxX = centerX + (size.width - inset - centerX) / safeScale - node.cardWidth / 2;
+  const maxX =
+    centerX + (size.width - inset - centerX) / safeScale - node.cardWidth / 2;
   const minY = centerY + (inset - centerY) / safeScale + node.cardHeight / 2;
-  const maxY = centerY + (size.height - inset - centerY) / safeScale - node.cardHeight / 2;
+  const maxY =
+    centerY + (size.height - inset - centerY) / safeScale - node.cardHeight / 2;
 
   if (minX > maxX || minY > maxY) {
     return {
