@@ -85,7 +85,7 @@ function limitCvSkills(draft: CvDraftSnapshot): CvDraftSnapshot {
 
 export function VacancyDetailApp({ slugId }: { slugId: string }) {
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-950">
+    <div className="av-app-shell text-[#171827]">
       <AppHeader logoHref="/" />
       <Authenticated>
         <VacancyDetailWorkspace slugId={slugId} />
@@ -467,9 +467,6 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
                 <CvDraftWorkspace
                   draft={cvDraft}
                   pictureUrl={packageDetail?.pictureUrl ?? null}
-                  pictureMode={
-                    packageDetail?.applicationPackage.profilePictureOverride.kind ?? "preparing"
-                  }
                   packageReady={packageReady}
                   packageStatus={packageStatus}
                   packagePictureUrl={packagePictureUrl}
@@ -543,6 +540,9 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
           <Card>
             <CardHeader>
               <CardTitle>Required skills</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Add skills to your Candidate Profile so future vacancies also know you have them.
+              </p>
             </CardHeader>
             <CardContent className="space-y-2">
               {detail.requiredSkills.map((skill) => (
@@ -655,7 +655,6 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
 function CvDraftWorkspace({
   draft,
   pictureUrl,
-  pictureMode,
   packageReady,
   packageStatus,
   packagePictureUrl,
@@ -675,7 +674,6 @@ function CvDraftWorkspace({
 }: {
   draft: CvDraftSnapshot | null;
   pictureUrl: string | null;
-  pictureMode: PackagePictureOverride["kind"] | "preparing";
   packageReady: boolean;
   packageStatus: string | null;
   packagePictureUrl: string;
@@ -696,7 +694,6 @@ function CvDraftWorkspace({
   const pictureControl = (
     <ProfilePicturePackageControl
       pictureUrl={pictureUrl}
-      pictureMode={pictureMode}
       packageReady={packageReady}
       packageStatus={packageStatus}
       packagePictureUrl={packagePictureUrl}
@@ -731,7 +728,8 @@ function CvDraftWorkspace({
 
   return (
     <div className="space-y-5">
-      {pictureControl}
+      <PdfVersionHistory versions={pdfVersions} />
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h2 className="font-medium">CV Draft</h2>
@@ -828,14 +826,14 @@ function CvDraftWorkspace({
       />
       <ExperienceDraftEditor draft={draft} onChange={onChange} />
       <EducationDraftEditor draft={draft} onChange={onChange} />
-      <PdfVersionHistory versions={pdfVersions} />
+
+      {pictureControl}
     </div>
   );
 }
 
 function ProfilePicturePackageControl({
   pictureUrl,
-  pictureMode,
   packageReady,
   packageStatus,
   packagePictureUrl,
@@ -844,7 +842,6 @@ function ProfilePicturePackageControl({
   onPackagePictureOverride,
 }: {
   pictureUrl: string | null;
-  pictureMode: PackagePictureOverride["kind"] | "preparing";
   packageReady: boolean;
   packageStatus: string | null;
   packagePictureUrl: string;
@@ -929,7 +926,6 @@ function ProfilePicturePackageControl({
               Save URL
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">Current mode: {pictureMode}</p>
           {packageStatus !== null ? (
             <p className="text-sm text-muted-foreground">{packageStatus}</p>
           ) : null}

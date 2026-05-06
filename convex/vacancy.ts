@@ -494,6 +494,27 @@ export const updateQuestionAnswer = mutation({
   },
 });
 
+export const clearQuestionAnswer = mutation({
+  args: {
+    questionId: v.id("vacancyQuestions"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const ownerToken = await requireOwnerToken(ctx);
+    const question = await ctx.db.get(args.questionId);
+    if (question === null || question.ownerToken !== ownerToken) {
+      throw new Error("Question not found");
+    }
+    const vacancy = await getOwnedVacancy(ctx, question.vacancyUnderstandingId, ownerToken);
+    await ctx.db.patch(question._id, {
+      answer: null,
+      answeredAt: null,
+    });
+    await ctx.db.patch(vacancy._id, { updatedAt: Date.now() });
+    return null;
+  },
+});
+
 export const deleteQuestion = mutation({
   args: {
     questionId: v.id("vacancyQuestions"),

@@ -24,6 +24,14 @@ _Avoid_: Application draft, workflow run
 Clarification prompts and Job Seeker answers attached to one Vacancy Understanding.
 _Avoid_: Application Package questions, CV Draft questions
 
+**Pending Vacancy Question**:
+A Vacancy Question that still needs a Job Seeker answer in the composer.
+_Avoid_: Active prompt, current form question
+
+**Answered Vacancy Question**:
+A Vacancy Question with a Job Seeker answer that may be shown as a floating answer card.
+_Avoid_: Saved card, note
+
 **Candidate Profile**:
 The reusable source of truth for a Job Seeker's experience, skills, education, and facts.
 _Avoid_: Base CV, resume, profile
@@ -70,6 +78,8 @@ _Avoid_: Motivation letter
 - A **Vacancy Source** may be used to fill the **Vacancy** description before creating a **Vacancy Understanding**.
 - A **Job Seeker** creates one **Vacancy Understanding** from one **Vacancy** before preparing an **Application Package**.
 - A **Vacancy Understanding** may contain **Vacancy Questions** before or after the **Application Package** exists.
+- A **Vacancy Question** is either a **Pending Vacancy Question** or an **Answered Vacancy Question**.
+- An **Answered Vacancy Question** can be recalled for editing without becoming part of the **CV Draft** directly.
 - A **Job Seeker** prepares one **Application Package** for a **Vacancy**.
 - An **Application Package** is derived from exactly one **Vacancy** and one **Candidate Profile**.
 - An **Application Package** may contain one active **CV Draft**.
