@@ -36,7 +36,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { statusLabel, vacancyReviewPath } from "@/components/vacancy/vacancy-utils";
+import { vacancyReviewPath } from "@/components/vacancy/vacancy-utils";
 
 type SpecifyDetail = NonNullable<typeof api.vacancy.get._returnType>;
 type AnsweredQuestion = SpecifyDetail["questions"][number] & { answer: string };
@@ -294,7 +294,9 @@ function SpecifyVacancyWorkspace({
                     setExitingQuestion(activeQuestion);
                     setActiveIndex((index) => {
                       if (pendingQuestions.length <= 1) return 0;
-                      return (index + direction + pendingQuestions.length) % pendingQuestions.length;
+                      return (
+                        (index + direction + pendingQuestions.length) % pendingQuestions.length
+                      );
                     });
                   }}
                   onSubmit={() => {

@@ -467,9 +467,6 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
                 <CvDraftWorkspace
                   draft={cvDraft}
                   pictureUrl={packageDetail?.pictureUrl ?? null}
-                  pictureMode={
-                    packageDetail?.applicationPackage.profilePictureOverride.kind ?? "preparing"
-                  }
                   packageReady={packageReady}
                   packageStatus={packageStatus}
                   packagePictureUrl={packagePictureUrl}
@@ -658,7 +655,6 @@ function VacancyDetailWorkspace({ slugId }: { slugId: string }) {
 function CvDraftWorkspace({
   draft,
   pictureUrl,
-  pictureMode,
   packageReady,
   packageStatus,
   packagePictureUrl,
@@ -678,7 +674,6 @@ function CvDraftWorkspace({
 }: {
   draft: CvDraftSnapshot | null;
   pictureUrl: string | null;
-  pictureMode: PackagePictureOverride["kind"] | "preparing";
   packageReady: boolean;
   packageStatus: string | null;
   packagePictureUrl: string;

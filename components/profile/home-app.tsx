@@ -1,13 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Authenticated,
-  Unauthenticated,
-  useAction,
-  useMutation,
-  useQuery,
-} from "convex/react";
+import { Authenticated, Unauthenticated, useAction, useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, FileText, Upload } from "lucide-react";
 import { api } from "@/convex/_generated/api";
@@ -15,13 +9,7 @@ import { isMarkdownCvFile } from "@/lib/candidate-profile";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -36,10 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { SignInAction, SignUpAction } from "@/components/auth/auth-actions";
 import { AppHeader } from "@/components/profile/app-header";
 import { StartProfileScreen } from "@/components/profile/start-profile-screen";
-import {
-  statusLabel,
-  vacancyReviewPath,
-} from "@/components/vacancy/vacancy-utils";
+import { statusLabel, vacancyReviewPath } from "@/components/vacancy/vacancy-utils";
 
 export function HomeApp() {
   return (
@@ -66,8 +51,7 @@ function HomeWorkspace() {
   const [vacancyText, setVacancyText] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [vacancyStatus, setVacancyStatus] = useState<string | null>(null);
-  const [isConvertingVacancySource, setIsConvertingVacancySource] =
-    useState(false);
+  const [isConvertingVacancySource, setIsConvertingVacancySource] = useState(false);
 
   async function handleImportMarkdown(filename: string, markdown: string) {
     if (markdown.trim() === "") {
@@ -92,9 +76,7 @@ function HomeWorkspace() {
   }
 
   async function handleImport(file: File) {
-    const isPdf =
-      file.type === "application/pdf" ||
-      file.name.toLowerCase().endsWith(".pdf");
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
 
     if (!isMarkdownCvFile(file.name) && !isPdf) {
       setStatus("Upload a .md or PDF file.");
@@ -126,11 +108,7 @@ function HomeWorkspace() {
 
       await handleImportMarkdown("uploaded-cv.md", result.markdown);
     } catch (error) {
-      setStatus(
-        error instanceof Error
-          ? error.message
-          : "Could not convert Imported CV.",
-      );
+      setStatus(error instanceof Error ? error.message : "Could not convert Imported CV.");
     }
   }
 
@@ -148,26 +126,19 @@ function HomeWorkspace() {
       });
       router.push(`/specify-vacancy/${vacancyUnderstandingId}`);
     } catch (error) {
-      setVacancyStatus(
-        error instanceof Error ? error.message : "Could not create Vacancy.",
-      );
+      setVacancyStatus(error instanceof Error ? error.message : "Could not create Vacancy.");
     }
   }
 
   async function handleVacancySourceUpload(file: File) {
-    if (
-      file.type !== "application/pdf" &&
-      !file.name.toLowerCase().endsWith(".pdf")
-    ) {
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
       setVacancyStatus("Upload a PDF Vacancy Source.");
       return;
     }
 
     if (
       vacancyText.trim() !== "" &&
-      !window.confirm(
-        "Replace the current Vacancy description with text from this PDF?",
-      )
+      !window.confirm("Replace the current Vacancy description with text from this PDF?")
     ) {
       return;
     }
@@ -195,9 +166,7 @@ function HomeWorkspace() {
       setVacancyStatus("Vacancy Source converted. Review before continuing.");
     } catch (error) {
       setVacancyStatus(
-        error instanceof Error
-          ? error.message
-          : "Could not convert Vacancy Source.",
+        error instanceof Error ? error.message : "Could not convert Vacancy Source.",
       );
     } finally {
       setIsConvertingVacancySource(false);
@@ -221,9 +190,7 @@ function HomeWorkspace() {
         pastedMarkdown={pastedMarkdown}
         status={status}
         onMarkdownChange={setPastedMarkdown}
-        onPasteImport={() =>
-          void handleImportMarkdown("pasted-cv.md", pastedMarkdown)
-        }
+        onPasteImport={() => void handleImportMarkdown("pasted-cv.md", pastedMarkdown)}
         onFileImport={(file) => void handleImport(file)}
         onManualStart={() => router.push("/profile")}
       />
@@ -255,9 +222,7 @@ function HomeWorkspace() {
                 type="button"
                 variant="outline"
                 disabled={isConvertingVacancySource}
-                onClick={() =>
-                  document.getElementById("vacancy-source-pdf")?.click()
-                }
+                onClick={() => document.getElementById("vacancy-source-pdf")?.click()}
               >
                 <Upload className="size-4" />
                 Upload PDF
@@ -281,11 +246,7 @@ function HomeWorkspace() {
               <p className="text-sm text-muted-foreground">{vacancyStatus}</p>
             ) : null}
             <div className="flex flex-wrap gap-2 justify-between">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.push("/profile")}
-              >
+              <Button type="button" variant="outline" onClick={() => router.push("/profile")}>
                 Review Candidate Profile
               </Button>
 
@@ -326,9 +287,7 @@ function VacancyTable({
           <label className="flex items-center gap-2 pt-1 text-sm font-medium text-muted-foreground">
             <Checkbox
               checked={includeArchived}
-              onCheckedChange={(checked) =>
-                onIncludeArchivedChange(checked === true)
-              }
+              onCheckedChange={(checked) => onIncludeArchivedChange(checked === true)}
             />
             Show archived
           </label>
@@ -341,9 +300,7 @@ function VacancyTable({
             <Skeleton className="h-10 w-full" />
           </div>
         ) : vacancies.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            No Vacancy Understandings yet.
-          </p>
+          <p className="text-sm text-muted-foreground">No Vacancy Understandings yet.</p>
         ) : (
           <Table className="table-fixed">
             <TableHeader>
@@ -351,30 +308,20 @@ function VacancyTable({
                 <TableHead className="w-[38%] md:w-[39%]">Vacancy</TableHead>
                 <TableHead className="w-[18%] md:w-[14%]">Company</TableHead>
                 <TableHead className="w-[30%] md:w-[25%]">Status</TableHead>
-                <TableHead className="hidden w-[13%] md:table-cell">
-                  Created
-                </TableHead>
-                <TableHead className="w-[14%] text-right md:w-[9%]">
-                  Action
-                </TableHead>
+                <TableHead className="hidden w-[13%] md:table-cell">Created</TableHead>
+                <TableHead className="w-[14%] text-right md:w-[9%]">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {vacancies.map((vacancy) => (
                 <TableRow key={vacancy._id}>
                   <TableCell className="font-medium">
-                    <span
-                      className="block truncate"
-                      title={vacancy.title ?? "Untitled Vacancy"}
-                    >
+                    <span className="block truncate" title={vacancy.title ?? "Untitled Vacancy"}>
                       {vacancy.title ?? "Untitled Vacancy"}
                     </span>
                   </TableCell>
                   <TableCell>
-                    <span
-                      className="block truncate"
-                      title={vacancy.companyName ?? "Unknown"}
-                    >
+                    <span className="block truncate" title={vacancy.companyName ?? "Unknown"}>
                       {vacancy.companyName ?? "Unknown"}
                     </span>
                   </TableCell>
@@ -383,9 +330,7 @@ function VacancyTable({
                       <Badge
                         className="max-w-full truncate"
                         title={statusLabel(vacancy.status)}
-                        variant={
-                          vacancy.status === "ready" ? "default" : "secondary"
-                        }
+                        variant={vacancy.status === "ready" ? "default" : "secondary"}
                       >
                         {statusLabel(vacancy.status)}
                       </Badge>
@@ -457,16 +402,12 @@ function PublicHome() {
         </h1>
 
         <p className="max-w-xl text-balance text-lg text-muted-foreground">
-          Build your Candidate Profile once. Then let Auto Vacancy analyse each
-          job posting, ask the right questions, and generate a tailored CV and
-          cover letter in minutes.
+          Build your Candidate Profile once. Then let Auto Vacancy analyse each job posting, ask the
+          right questions, and generate a tailored CV and cover letter in minutes.
         </p>
 
         <div className="flex flex-wrap justify-center gap-3">
-          <SignUpAction
-            variant="default"
-            className="h-11 px-7 text-sm font-semibold"
-          />
+          <SignUpAction variant="default" className="h-11 px-7 text-sm font-semibold" />
           <SignInAction className="h-11 px-7 text-sm font-semibold" />
         </div>
       </section>
@@ -513,17 +454,11 @@ function PublicHome() {
       {/* CTA footer */}
       <section className="border-t border-[#dfe4f3] bg-white/60 py-16 backdrop-blur">
         <div className="mx-auto flex max-w-xl flex-col items-center gap-6 px-4 text-center">
-          <h2 className="text-2xl font-bold text-[#171827]">
-            Ready to apply smarter?
-          </h2>
+          <h2 className="text-2xl font-bold text-[#171827]">Ready to apply smarter?</h2>
           <p className="text-muted-foreground">
-            Create your free account in seconds and start generating tailored
-            applications today.
+            Create your free account in seconds and start generating tailored applications today.
           </p>
-          <SignUpAction
-            variant="default"
-            className="h-11 px-10 text-sm font-semibold"
-          />
+          <SignUpAction variant="default" className="h-11 px-10 text-sm font-semibold" />
         </div>
       </section>
     </main>
@@ -564,9 +499,7 @@ function StepCard({
           </span>
           <h3 className="text-xl font-semibold text-[#171827]">{title}</h3>
         </div>
-        <p className="text-[15px] leading-relaxed text-muted-foreground">
-          {description}
-        </p>
+        <p className="text-[15px] leading-relaxed text-muted-foreground">{description}</p>
       </div>
 
       {/* Visual */}
@@ -582,9 +515,7 @@ function VacancyVisual() {
     <div className="rounded-xl border border-[#dfe4f3] bg-white p-5 shadow-[0_10px_34px_rgba(92,99,180,0.08)]">
       <p className="mb-3 text-sm font-semibold text-[#171827]">Add a Vacancy</p>
       <div className="mb-3 rounded-lg border border-[#dfe4f3] bg-[#f8faff] p-3 text-[11px] leading-relaxed text-muted-foreground">
-        <span className="font-medium text-[#171827]">
-          Frontend Developer – Acme Inc.
-        </span>
+        <span className="font-medium text-[#171827]">Frontend Developer – Acme Inc.</span>
         <br />
         Location: Amsterdam, Netherlands (Hybrid)
         <br />
@@ -593,31 +524,25 @@ function VacancyVisual() {
         <br />
         <span className="font-medium text-[#171827]">About Acme Inc.</span>
         <br />
-        Acme Inc. is a fast-growing tech company delivering innovative SaaS
-        solutions...
+        Acme Inc. is a fast-growing tech company delivering innovative SaaS solutions...
         <br />
         <br />
         <span className="font-medium text-[#171827]">What you&apos;ll do</span>
-        <br />
-        • Develop responsive, high-performance web interfaces using React,
-        TypeScript...
-        <br />
-        • Translate UI/UX designs from Figma into pixel-perfect code.
+        <br />• Develop responsive, high-performance web interfaces using React, TypeScript...
+        <br />• Translate UI/UX designs from Figma into pixel-perfect code.
         <br />• Implement reusable component libraries and design systems.
       </div>
 
       {/* Detected skill chips */}
       <div className="mb-4 flex flex-wrap gap-1.5">
-        {["React", "TypeScript", "CSS3", "Figma", "Tailwind", "CI/CD"].map(
-          (s) => (
-            <span
-              key={s}
-              className="rounded-full border border-[#dfe4f3] bg-[#eef2ff] px-2.5 py-0.5 text-[10px] font-medium text-[#5657e8]"
-            >
-              {s}
-            </span>
-          ),
-        )}
+        {["React", "TypeScript", "CSS3", "Figma", "Tailwind", "CI/CD"].map((s) => (
+          <span
+            key={s}
+            className="rounded-full border border-[#dfe4f3] bg-[#eef2ff] px-2.5 py-0.5 text-[10px] font-medium text-[#5657e8]"
+          >
+            {s}
+          </span>
+        ))}
       </div>
 
       <div className="flex items-center justify-between gap-2">
@@ -681,9 +606,7 @@ function QuestionsVisual() {
             style={{ left: card.x, top: card.y, maxWidth: "44%" }}
           >
             <p className="text-[9px] font-semibold text-[#5657e8]">{card.q}</p>
-            <p className="mt-0.5 text-[9px] text-muted-foreground leading-snug">
-              {card.a}
-            </p>
+            <p className="mt-0.5 text-[9px] text-muted-foreground leading-snug">{card.a}</p>
           </div>
         ))}
       </div>
@@ -694,8 +617,7 @@ function QuestionsVisual() {
           Question 1 of 1
         </p>
         <p className="text-[11px] font-semibold leading-snug text-[#171827]">
-          The vacancy asks for High-performance frontend development. Do you
-          have experience?
+          The vacancy asks for High-performance frontend development. Do you have experience?
         </p>
         <p className="mt-2 text-[10px] text-muted-foreground italic">
           Required hard skill not found in Candidate Profile.
@@ -725,17 +647,14 @@ function CvVisual() {
       <p className="text-lg font-bold" style={{ color: "#2563eb" }}>
         Abel de Bruijn
       </p>
-      <p className="text-[11px] font-medium text-[#171827]">
-        Frontend Developer · Acme Inc.
-      </p>
+      <p className="text-[11px] font-medium text-[#171827]">Frontend Developer · Acme Inc.</p>
       <p className="text-[10px] text-muted-foreground">
         Amsterdam · personal-website.nl · LinkedIn · GitHub
       </p>
 
       <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-        Frontend Developer based in the Netherlands with 5+ years of part-time
-        professional frontend experience for web SaaS products. Background in
-        Computer Science…
+        Frontend Developer based in the Netherlands with 5+ years of part-time professional frontend
+        experience for web SaaS products. Background in Computer Science…
       </p>
 
       {/* Skills */}
@@ -743,8 +662,8 @@ function CvVisual() {
         Skills
       </p>
       <p className="text-[10px] text-muted-foreground">
-        React • TypeScript • HTML5 • CSS3 • Flexbox, Grid, Tailwind • Responsive
-        web interfaces • 3+ years
+        React • TypeScript • HTML5 • CSS3 • Flexbox, Grid, Tailwind • Responsive web interfaces • 3+
+        years
       </p>
 
       {/* Experience */}
@@ -763,9 +682,7 @@ function CvVisual() {
       ].map((exp) => (
         <div key={exp.role} className="mt-2">
           <p className="text-[10px] font-semibold text-[#171827]">{exp.role}</p>
-          <p className="text-[9.5px] leading-snug text-muted-foreground">
-            {exp.desc}
-          </p>
+          <p className="text-[9.5px] leading-snug text-muted-foreground">{exp.desc}</p>
         </div>
       ))}
 
@@ -777,8 +694,7 @@ function CvVisual() {
         MSc. Computer Science — TU Delft (2023–Jan 2026)
       </p>
       <p className="text-[9.5px] text-muted-foreground">
-        Thesis: Interactive line manipulation for large-scale visual data
-        analysis.
+        Thesis: Interactive line manipulation for large-scale visual data analysis.
       </p>
 
       {/* Export badge */}
