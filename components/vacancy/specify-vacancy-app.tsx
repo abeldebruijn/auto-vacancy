@@ -827,7 +827,7 @@ function AnswerField({
 
   return (
     <div ref={fieldRef} className="absolute inset-0 z-10" onWheel={handleWheel}>
-      <div className="absolute right-3 top-3 sm:right-6 sm:top-6 z-30 flex items-center gap-0.5 rounded-md border border-[#dfe4f3] bg-white/90 p-1 shadow-[0_10px_34px_rgba(92,99,180,0.08)] backdrop-blur sm:gap-1">
+      <div className="absolute right-3 top-3 z-30 flex flex-col items-center gap-0.5 rounded-md border border-[#dfe4f3] bg-white/90 p-1 shadow-[0_10px_34px_rgba(92,99,180,0.08)] backdrop-blur sm:right-6 sm:top-6 sm:flex-row sm:gap-1">
         <Button
           type="button"
           variant="ghost"
@@ -839,7 +839,7 @@ function AnswerField({
         >
           <Minus className="size-4" />
         </Button>
-        <span className="w-10 text-center text-xs font-medium tabular-nums text-[#777d96] sm:w-11">
+        <span className="w-7 text-center text-[0.5rem] font-medium tabular-nums text-[#777d96] sm:w-11">
           {Math.round(zoom * 100)}%
         </span>
         <Button
