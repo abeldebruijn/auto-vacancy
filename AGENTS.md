@@ -20,6 +20,21 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 <!-- END:nextjs-agent-rules -->
 
+<!-- BEGIN:local-issue-rules -->
+
+# Local issue tracker
+
+This project tracks agent-ready implementation issues as local markdown files in `docs/issues/`.
+
+- Do not create GitHub issues unless the user explicitly asks for GitHub publication.
+- New issue drafts should use sequential numeric filenames, for example `0004-short-title.md`.
+- Each issue file must include YAML frontmatter with `id`, `title`, `type`, `status`, `blocked_by`, `parent`, and `user_stories`.
+- Use `status: ready-for-agent` for approved AFK/HITL implementation slices unless the user says otherwise.
+- Keep issue bodies in the local issue template: `Parent`, `What to build`, `Acceptance criteria`, and `Blocked by`.
+- Track global issue progress in `docs/issues/0000-progess.md`; update it whenever issue work starts, finishes, or becomes unblocked.
+
+<!-- END:local-issue-rules -->
+
 <!-- BEGIN:vite-plus-rules -->
 
 This project uses vite plus to manage node, dev and build commands
